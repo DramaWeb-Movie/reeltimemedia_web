@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { FiSearch, FiBell, FiUser, FiMenu, FiX, FiGlobe, FiChevronDown, FiPlay } from 'react-icons/fi';
+import { createClient } from '@/lib/supabase/client';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -21,6 +22,20 @@ export default function Header() {
     };
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setIsLoggedIn(!!user);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session?.user);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   return (
@@ -249,7 +264,18 @@ export default function Header() {
             </div>
 
             {/* Mobile Auth Buttons */}
-            {!isLoggedIn && (
+            {isLoggedIn ? (
+              <div className="px-4 pt-4 space-y-3">
+                <Link 
+                  href="/profile" 
+                  className="flex items-center justify-center gap-3 w-full py-3 gradient-btn text-white rounded-xl font-semibold"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <FiUser className="text-lg" />
+                  Profile
+                </Link>
+              </div>
+            ) : (
               <div className="px-4 pt-4 space-y-3">
                 <Link 
                   href="/login" 

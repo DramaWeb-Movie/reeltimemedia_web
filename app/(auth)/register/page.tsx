@@ -2,12 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import AuthLayout from '@/components/auth/AuthLayout';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { FiMail, FiLock, FiUser } from 'react-icons/fi';
+import { createClient } from '@/lib/supabase/client';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -23,6 +23,7 @@ export default function RegisterPage() {
     password?: string;
     confirmPassword?: string;
   }>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
 
@@ -73,25 +74,60 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
 
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      setFormError('Please fix the errors below.');
+      return;
+    }
 
     if (!agreeToTerms) {
-      alert('Please agree to the Terms of Service and Privacy Policy');
+      setFormError('Please agree to the Terms of Service and Privacy Policy.');
       return;
     }
 
     setLoading(true);
-    
-    // Simulate API call
+    setFormError(null);
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey =
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      setFormError(
+        'Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env, then restart the dev server.'
+      );
+      setLoading(false);
+      return;
+    }
+
+    const supabase = createClient();
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      // Replace with actual register API call
-      console.log('Register:', formData);
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: { full_name: formData.name },
+        },
+      });
+
+      if (error) {
+        setFormError(error.message);
+        return;
+      }
+
+      if (data.user && !data.user.confirmed_at) {
+        router.push('/login?message=' + encodeURIComponent('Check your email to confirm your account'));
+        return;
+      }
+
       router.push('/home');
-    } catch (error) {
-      console.error('Registration error:', error);
-      setErrors({ email: 'Email already exists' });
+      router.refresh();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+      setFormError(message);
     } finally {
       setLoading(false);
     }
@@ -102,6 +138,11 @@ export default function RegisterPage() {
       title="Create Account"
       subtitle="Join ReelTime Media and start streaming today"
     >
+      {formError && (
+        <div className="mb-4 p-4 rounded-xl bg-[#E31837]/20 border border-[#E31837] text-[#E31837] text-sm">
+          {formError}
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Name Input */}
         <div className="relative">

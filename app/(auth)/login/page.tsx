@@ -1,16 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import AuthLayout from '@/components/auth/AuthLayout';
 import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { FiMail, FiLock } from 'react-icons/fi';
+import { createClient } from '@/lib/supabase/client';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -18,6 +19,12 @@ export default function LoginPage() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [loading, setLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const message = searchParams.get('message');
+    if (message) setSuccessMessage(decodeURIComponent(message));
+  }, [searchParams]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -53,16 +60,36 @@ export default function LoginPage() {
     if (!validateForm()) return;
 
     setLoading(true);
-    
-    // Simulate API call
+
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey =
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      setErrors({ email: 'Supabase not configured. Restart dev server after updating .env' });
+      setLoading(false);
+      return;
+    }
+
+    const supabase = createClient();
+
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      // Replace with actual login API call
-      console.log('Login:', formData);
+      const { error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (error) {
+        setErrors({ email: error.message });
+        return;
+      }
+
       router.push('/home');
-    } catch (error) {
-      console.error('Login error:', error);
-      setErrors({ email: 'Invalid email or password' });
+      router.refresh();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Invalid email or password';
+      setErrors({ email: message });
     } finally {
       setLoading(false);
     }
@@ -73,6 +100,11 @@ export default function LoginPage() {
       title="Welcome Back"
       subtitle="Sign in to continue streaming your favorites"
     >
+      {successMessage && (
+        <div className="p-4 mb-6 rounded-xl bg-[#1a3d1a] border border-[#2d5a2d] text-[#86ef86] text-sm">
+          {successMessage}
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Email Input */}
         <div className="relative">
@@ -194,6 +226,22 @@ export default function LoginPage() {
         </p>
       </form>
     </AuthLayout>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <AuthLayout title="Welcome Back" subtitle="Sign in to continue streaming your favorites">
+        <div className="animate-pulse space-y-6">
+          <div className="h-14 bg-[#252525] rounded-xl" />
+          <div className="h-14 bg-[#252525] rounded-xl" />
+          <div className="h-12 bg-[#252525] rounded-xl" />
+        </div>
+      </AuthLayout>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
 

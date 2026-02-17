@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KHQR Generator (Simple)</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 600px;
+      width: 100%;
+      padding: 40px;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 28px;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      color: #333;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 14px 30px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+      width: 100%;
+      margin-top: 10px;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+    }
+
+    .result {
+      margin-top: 30px;
+      padding: 30px;
+      background: #f8f9fa;
+      border-radius: 12px;
+      display: none;
+    }
+
+    .result.show {
+      display: block;
+    }
+
+    .info-item {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+    }
+
+    .info-label {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 4px;
+    }
+
+    .info-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      word-break: break-all;
+    }
+
+    .payload {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      word-break: break-all;
+      line-height: 1.6;
+      color: #333;
+    }
+
+    .tip {
+      background: #fff3cd;
+      border-left: 4px solid #ffc107;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+      font-size: 14px;
+      color: #856404;
+    }
+
+    .copy-btn {
+      background: #28a745;
+      margin-top: 10px;
+      font-size: 14px;
+      padding: 10px 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🇰🇭 KHQR Generator (Simple)</h1>
+    <p class="subtitle">Generate Bakong payment codes - No external dependencies!</p>
+
+    <form id="qrForm">
+      <div class="form-group">
+        <label for="amount">Amount</label>
+        <input type="number" id="amount" step="0.01" value="4.99" required>
+      </div>
+
+      <div class="form-group">
+        <label for="currency">Currency</label>
+        <select id="currency">
+          <option value="USD">USD ($)</option>
+          <option value="KHR">KHR (៛)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="description">Description</label>
+        <input type="text" id="description" value="Movie Purchase" maxlength="25">
+      </div>
+
+      <div class="form-group">
+        <label for="merchantName">Merchant Name</label>
+        <input type="text" id="merchantName" value="ReelTime Media" maxlength="25">
+      </div>
+
+      <button type="submit">Generate KHQR Code</button>
+    </form>
+
+    <div id="result" class="result">
+      <div class="info-item">
+        <div class="info-label">Amount</div>
+        <div class="info-value" id="displayAmount"></div>
+      </div>
+
+      <div class="info-item">
+        <div class="info-label">Description</div>
+        <div class="info-value" id="displayDescription"></div>
+      </div>
+
+      <div class="info-item">
+        <div class="info-label">Reference</div>
+        <div class="info-value" id="displayReference"></div>
+      </div>
+
+      <div class="info-item">
+        <div class="info-label">EMVCo Payload (Copy this to use with QR generator)</div>
+        <div class="payload" id="payloadText"></div>
+        <button class="copy-btn" onclick="copyPayload()">📋 Copy Payload</button>
+      </div>
+
+      <div class="tip">
+        💡 <strong>Next Steps:</strong><br>
+        1. Copy the payload above<br>
+        2. Use any online QR code generator (e.g., qr-code-generator.com)<br>
+        3. Paste the payload and generate QR<br>
+        4. Scan with KHQR-compatible banking apps
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Calculate CRC16-CCITT checksum
+    function calculateCRC16(data) {
+      let crc = 0xFFFF;
+      
+      for (let i = 0; i < data.length; i++) {
+        crc ^= data.charCodeAt(i) << 8;
+        
+        for (let j = 0; j < 8; j++) {
+          if (crc & 0x8000) {
+            crc = (crc << 1) ^ 0x1021;
+          } else {
+            crc = crc << 1;
+          }
+        }
+      }
+      
+      crc = crc & 0xFFFF;
+      return crc.toString(16).toUpperCase().padStart(4, '0');
+    }
+
+    // Format TLV (Tag-Length-Value)
+    function formatTLV(tag, value) {
+      const length = value.length.toString().padStart(2, '0');
+      return `${tag}${length}${value}`;
+    }
+
+    // Generate KHQR payload
+    function generateKHQR(options) {
+      const {
+        amount,
+        currency,
+        description,
+        merchantName,
+        merchantId = '000123456789',
+        merchantCity = 'Phnom Penh'
+      } = options;
+
+      // Generate unique reference
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+      const reference = `RTL-${timestamp}-${random}`;
+
+      let payload = '';
+
+      // Payload Format Indicator
+      payload += formatTLV('00', '01');
+
+      // Point of Initiation Method (Dynamic)
+      payload += formatTLV('01', '12');
+
+      // Merchant Account Information (Bakong)
+      let merchantInfo = '';
+      merchantInfo += formatTLV('00', 'kh.gov.nbc.bakong');
+      merchantInfo += formatTLV('01', merchantId);
+      payload += formatTLV('29', merchantInfo);
+
+      // Transaction Currency
+      const currencyCode = currency === 'USD' ? '840' : '116';
+      payload += formatTLV('53', currencyCode);
+
+      // Transaction Amount
+      if (amount) {
+        const amountStr = parseFloat(amount).toFixed(2);
+        payload += formatTLV('54', amountStr);
+      }
+
+      // Country Code
+      payload += formatTLV('58', 'KH');
+
+      // Merchant Name
+      payload += formatTLV('59', merchantName.substring(0, 25));
+
+      // Merchant City
+      payload += formatTLV('60', merchantCity.substring(0, 15));
+
+      // Additional Data
+      let additionalData = '';
+      additionalData += formatTLV('01', reference.substring(0, 25));
+      additionalData += formatTLV('08', description.substring(0, 25));
+      payload += formatTLV('62', additionalData);
+
+      // CRC
+      payload += '6304';
+      const crc = calculateCRC16(payload);
+      payload = payload.slice(0, -4) + formatTLV('63', crc);
+
+      return {
+        payload,
+        reference,
+        amount,
+        currency,
+        description,
+        merchantName
+      };
+    }
+
+    let currentPayload = null;
+
+    // Handle form submission
+    document.getElementById('qrForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const amount = document.getElementById('amount').value;
+      const currency = document.getElementById('currency').value;
+      const description = document.getElementById('description').value;
+      const merchantName = document.getElementById('merchantName').value;
+
+      // Generate KHQR
+      const qrData = generateKHQR({
+        amount,
+        currency,
+        description,
+        merchantName
+      });
+
+      currentPayload = qrData.payload;
+
+      // Display information
+      document.getElementById('displayAmount').textContent = 
+        `${parseFloat(amount).toFixed(2)} ${currency}`;
+      document.getElementById('displayDescription').textContent = description;
+      document.getElementById('displayReference').textContent = qrData.reference;
+      document.getElementById('payloadText').textContent = qrData.payload;
+
+      // Show result
+      document.getElementById('result').classList.add('show');
+      
+      // Smooth scroll to result
+      document.getElementById('result').scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'nearest' 
+      });
+    });
+
+    // Copy payload to clipboard
+    function copyPayload() {
+      if (!currentPayload) return;
+
+      const tempInput = document.createElement('textarea');
+      tempInput.value = currentPayload;
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      
+      try {
+        document.execCommand('copy');
+        alert('✅ Payload copied to clipboard!\n\nNow paste it into any QR code generator.');
+      } catch (err) {
+        alert('❌ Failed to copy. Please copy manually.');
+      }
+      
+      document.body.removeChild(tempInput);
+    }
+  </script>
+</body>
+</html>
