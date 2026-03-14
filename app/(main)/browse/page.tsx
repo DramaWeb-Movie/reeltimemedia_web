@@ -13,7 +13,7 @@ export default function BrowsePage() {
   const t = useTranslations('browse');
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const [dramas, setDramas] = useState<{ id: string; title: string; episodes: number; image: string }[]>([]);
+  const [dramas, setDramas] = useState<{ id: string; title: string; titleKh?: string; episodes: number; image: string }[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
