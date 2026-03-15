@@ -112,8 +112,8 @@ export async function GET(request: NextRequest) {
   if (contentTypeHeader) responseHeaders.set('Content-Type', contentTypeHeader);
   const contentLength = videoResponse.headers.get('content-length');
   if (contentLength) responseHeaders.set('Content-Length', contentLength);
-  const acceptRanges = videoResponse.headers.get('accept-ranges');
-  if (acceptRanges) responseHeaders.set('Accept-Ranges', acceptRanges);
+  // Explicit Accept-Ranges so the browser can seek (range requests) even if upstream omits it
+  responseHeaders.set('Accept-Ranges', videoResponse.headers.get('accept-ranges') || 'bytes');
   const contentRange = videoResponse.headers.get('content-range');
   if (contentRange) responseHeaders.set('Content-Range', contentRange);
   responseHeaders.set('Cache-Control', 'private, no-cache');

@@ -91,7 +91,7 @@ export default function WatchAccessGate({
         controls
         autoPlay
         playsInline
-        preload="metadata"
+        preload="auto"
         src={streamUrl}
         title={
           isSinglePart || !episodeNum
