@@ -1,8 +1,23 @@
-import { getMovies } from '@/lib/movies';
+import { getMoviesPage } from '@/lib/movies';
 import SeriesContent from '@/components/series/SeriesContent';
 
-export default async function SeriesPage() {
-  const items = await getMovies({ type: 'series', status: 'published' });
+const PAGE_SIZE = 20;
 
-  return <SeriesContent initialItems={items} />;
+export default async function SeriesPage(props: {
+  searchParams?: Promise<{ page?: string | string[] }>;
+}) {
+  const searchParams = (await props.searchParams) ?? {};
+  const rawPage = Array.isArray(searchParams.page) ? searchParams.page[0] : searchParams.page;
+  const currentPage = Math.max(1, Number.parseInt(rawPage ?? '1', 10) || 1);
+
+  const { items, total } = await getMoviesPage({
+    type: 'series',
+    status: 'published',
+    page: currentPage,
+    pageSize: PAGE_SIZE,
+  });
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  return <SeriesContent initialItems={items} currentPage={currentPage} totalPages={totalPages} />;
 }

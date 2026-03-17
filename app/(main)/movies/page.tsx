@@ -1,16 +1,28 @@
-import { getMovies, getPurchasedMovieIdsForCurrentUser } from '@/lib/movies';
+import { getMoviesPage, getPurchasedMovieIdsForCurrentUser } from '@/lib/movies';
 import MoviesContent from '@/components/movies/MoviesContent';
 
-export default async function MoviesPage() {
-  const [items, purchasedMovieIds] = await Promise.all([
-    getMovies({ type: 'single', status: 'published' }),
+const PAGE_SIZE = 20;
+
+export default async function MoviesPage(props: {
+  searchParams?: Promise<{ page?: string | string[] }>;
+}) {
+  const searchParams = (await props.searchParams) ?? {};
+  const rawPage = Array.isArray(searchParams.page) ? searchParams.page[0] : searchParams.page;
+  const currentPage = Math.max(1, Number.parseInt(rawPage ?? '1', 10) || 1);
+
+  const [{ items, total }, purchasedMovieIds] = await Promise.all([
+    getMoviesPage({ type: 'single', status: 'published', page: currentPage, pageSize: PAGE_SIZE }),
     getPurchasedMovieIdsForCurrentUser(),
   ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <MoviesContent
       initialItems={items}
       purchasedMovieIds={Array.from(purchasedMovieIds)}
+      currentPage={currentPage}
+      totalPages={totalPages}
     />
   );
 }

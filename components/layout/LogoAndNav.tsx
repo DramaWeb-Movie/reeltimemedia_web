@@ -18,7 +18,7 @@ export default async function LogoAndNav() {
             sizes="56px"
           />
         </div>
-        <div className="hidden sm:flex flex-col">
+        <div className="flex flex-col">
           <span className="text-xl md:text-2xl font-bold tracking-tight">
             <span className="text-black">Reel</span>
             <span className="gradient-text">Time</span>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import DramaCardCompact from '@/components/drama/DramaCardCompact';
 import Pagination from '@/components/shared/Pagination';
 import { DRAMA_CARD_GRID } from '@/lib/drama-grid';
@@ -8,29 +9,35 @@ import { FiPlay, FiSearch, FiX } from 'react-icons/fi';
 import { useTranslations } from 'next-intl';
 import type { MovieCard } from '@/lib/movies';
 
-const PAGE_SIZE = 12;
-
-type SeriesContentProps = {
+export type SeriesContentProps = {
   initialItems: MovieCard[];
+  currentPage: number;
+  totalPages: number;
 };
 
-export default function SeriesContent({ initialItems }: SeriesContentProps) {
+export default function SeriesContent({ initialItems, currentPage, totalPages }: SeriesContentProps) {
   const t = useTranslations('series');
   const tb = useTranslations('browse');
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return initialItems;
-    return initialItems.filter((d) => d.title.toLowerCase().includes(q));
+
+    return initialItems.filter((d) => {
+      const titleEn = d.title?.toLowerCase() ?? '';
+      const titleKh = d.titleKh?.toLowerCase() ?? '';
+      return titleEn.includes(q) || titleKh.includes(q);
+    });
   }, [initialItems, searchQuery]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginatedItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
   const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+    const sp = new URLSearchParams(searchParams?.toString());
+    sp.set('page', String(page));
+    router.push(`${pathname}?${sp.toString()}`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -54,7 +61,6 @@ export default function SeriesContent({ initialItems }: SeriesContentProps) {
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
-              setCurrentPage(1);
             }}
             placeholder={tb('searchPlaceholder')}
             className="w-full bg-white border border-gray-200 focus:border-[#E31837]/50 rounded-xl pl-11 pr-10 py-3 text-gray-900 placeholder-gray-400 outline-none transition-colors text-sm shadow-sm"
@@ -79,9 +85,9 @@ export default function SeriesContent({ initialItems }: SeriesContentProps) {
           </p>
         )}
 
-        {paginatedItems.length > 0 ? (
+        {filtered.length > 0 ? (
           <div className={DRAMA_CARD_GRID}>
-            {paginatedItems.map((item) => (
+            {filtered.map((item) => (
               <DramaCardCompact
                 key={item.id}
                 id={item.id}
@@ -101,7 +107,7 @@ export default function SeriesContent({ initialItems }: SeriesContentProps) {
           </div>
         )}
 
-        {filtered.length > 0 && totalPages > 1 && (
+        {!searchQuery && filtered.length > 0 && totalPages > 1 && (
           <div className="mt-12">
             <Pagination
               currentPage={currentPage}

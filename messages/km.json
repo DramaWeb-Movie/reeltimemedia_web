@@ -3,7 +3,7 @@
     "home": "ទំព័រដើម",
     "browse": "ស្វែងរក",
     "movies": "ភាពយន្ត",
-    "series": "ភាពយន្តសេរី",
+    "series": "ភាពយន្តភាគ",
     "app": "កម្មវិធី",
     "language": "ភាសា",
     "selectLanguage": "ជ្រើសរើសភាសា",
@@ -85,7 +85,17 @@
     "noResultsFound": "រកមិនឃើញ",
     "tryDifferent": "សាកល្បងចំណងជើងផ្សេង ឬពិនិត្យការប្រកប",
     "results": "លទ្ធផល {count} សម្រាប់ \"{query}\"",
-    "resultsPlural": "លទ្ធផល {count} សម្រាប់ \"{query}\""
+    "resultsPlural": "លទ្ធផល {count} សម្រាប់ \"{query}\"",
+    "filterAllAccess": "ការចូលប្រើទាំងអស់",
+    "filterFree": "ឥតគិតថ្លៃ",
+    "filterPaid": "បង់ប្រាក់",
+    "filterAllTypes": "ទាំងអស់",
+    "filterMovies": "ភាពយន្ត១វគ្កចប់",
+    "filterSeries": "ភាពយន្តភាគ",
+    "labelAccess": "ការចូលប្រើ",
+    "labelType": "ប្រភេទខ្លឹមសារ",
+    "labelGenre": "ប្រភេទភាពយន្ត",
+    "filterAllGenres": "ប្រភេទទាំងអស់"
   },
   "movies": {
     "title": "ភាពយន្ត",

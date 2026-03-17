@@ -18,15 +18,64 @@ type BrowseContentProps = {
 export default function BrowseContent({ initialDramas, purchasedMovieIds }: BrowseContentProps) {
   const t = useTranslations('browse');
   const [searchQuery, setSearchQuery] = useState('');
+  const [freeFilter, setFreeFilter] = useState<'all' | 'free' | 'paid'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'movie' | 'series'>('all');
+  const [genreFilter, setGenreFilter] = useState<'all' | string>('all');
   const [currentPage, setCurrentPage] = useState(1);
 
   const purchasedSet = useMemo(() => new Set(purchasedMovieIds), [purchasedMovieIds]);
 
+  const allGenres = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of initialDramas) {
+      d.genres?.forEach((g) => {
+        const trimmed = g.trim();
+        if (trimmed) set.add(trimmed);
+      });
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [initialDramas]);
+
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return initialDramas;
-    return initialDramas.filter((d) => d.title.toLowerCase().includes(q));
-  }, [initialDramas, searchQuery]);
+
+    return initialDramas.filter((d) => {
+      // Text search (Khmer + English)
+      if (q) {
+        const titleEn = d.title?.toLowerCase() ?? '';
+        const titleKh = d.titleKh?.toLowerCase() ?? '';
+        if (!titleEn.includes(q) && !titleKh.includes(q)) {
+          return false;
+        }
+      }
+
+      // Free / paid filter
+      if (freeFilter === 'free') {
+        const isFreeMovie = d.contentType === 'movie' && (!d.price || d.price === 0);
+        const isFreeSeries = d.contentType === 'series' && (d.freeEpisodesCount ?? 0) > 0;
+        if (!isFreeMovie && !isFreeSeries) return false;
+      } else if (freeFilter === 'paid') {
+        const isPaidMovie = d.contentType === 'movie' && !!d.price && d.price > 0;
+        const isPaidSeries = d.contentType === 'series' && !(d.freeEpisodesCount && d.freeEpisodesCount > 0);
+        if (!isPaidMovie && !isPaidSeries) return false;
+      }
+
+      // Content type filter
+      if (typeFilter !== 'all' && d.contentType !== typeFilter) {
+        return false;
+      }
+
+      // Genre filter
+      if (genreFilter !== 'all') {
+        const genres = d.genres ?? [];
+        if (!genres.some((g) => g.trim().toLowerCase() === genreFilter.toLowerCase())) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [initialDramas, searchQuery, freeFilter, typeFilter, genreFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginatedDramas = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -46,7 +95,7 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
           </div>
         </div>
 
-        <div className="relative mb-8">
+        <div className="relative mb-4">
           <FiSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none" />
           <input
             type="text"
@@ -65,6 +114,70 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
             >
               <FiX className="text-lg" />
             </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap gap-4 mb-8">
+          {/* Free / Paid dropdown */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-500">
+              {t('labelAccess')}
+            </label>
+            <select
+              value={freeFilter}
+              onChange={(e) => {
+                setFreeFilter(e.target.value as 'all' | 'free' | 'paid');
+                setCurrentPage(1);
+              }}
+              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#E31837]/60 focus:border-[#E31837]/60 min-w-[160px]"
+            >
+              <option value="all">{t('filterAllAccess')}</option>
+              <option value="free">{t('filterFree')}</option>
+              <option value="paid">{t('filterPaid')}</option>
+            </select>
+          </div>
+
+          {/* Movie / Series dropdown */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-500">
+              {t('labelType')}
+            </label>
+            <select
+              value={typeFilter}
+              onChange={(e) => {
+                setTypeFilter(e.target.value as 'all' | 'movie' | 'series');
+                setCurrentPage(1);
+              }}
+              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#E31837]/60 focus:border-[#E31837]/60 min-w-[160px]"
+            >
+              <option value="all">{t('filterAllTypes')}</option>
+              <option value="movie">{t('filterMovies')}</option>
+              <option value="series">{t('filterSeries')}</option>
+            </select>
+          </div>
+
+          {/* Genre dropdown */}
+          {allGenres.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-gray-500">
+                {t('labelGenre')}
+              </label>
+              <select
+                value={genreFilter}
+                onChange={(e) => {
+                  setGenreFilter(e.target.value as 'all' | string);
+                  setCurrentPage(1);
+                }}
+                className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#E31837]/60 focus:border-[#E31837]/60 min-w-[180px]"
+              >
+                <option value="all">{t('filterAllGenres')}</option>
+                {allGenres.map((genre) => (
+                  <option key={genre} value={genre}>
+                    {genre}
+                  </option>
+                ))}
+              </select>
+            </div>
           )}
         </div>
 

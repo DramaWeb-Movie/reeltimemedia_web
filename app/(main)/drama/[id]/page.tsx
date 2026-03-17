@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import type { Drama } from '@/types';
 import { FaStar } from 'react-icons/fa';
 import { FiPlay, FiCalendar, FiGlobe, FiFilm, FiDollarSign, FiUsers } from 'react-icons/fi';
 import { getMovieById } from '@/lib/movies';
@@ -104,8 +103,8 @@ export default async function DramaDetailPage({
                 {drama.status === 'completed' ? 'Completed' : 'Ongoing'}
               </span>
             </div>
-            {/* Action buttons in hero */}
-            <div className="mt-5 flex flex-wrap gap-3">
+            {/* Action buttons in hero (desktop/tablet only) */}
+            <div className="mt-5 hidden md:flex flex-wrap gap-3">
               {isFreeMovie ? (
                 <Link
                   href={`/drama/${id}/watch`}
@@ -161,9 +160,75 @@ export default async function DramaDetailPage({
 
       {/* Main content: poster (mobile) + trailer, overview, episodes, cast */}
       <div className="container mx-auto px-4 md:px-8 py-8 md:py-10">
-        {/* Poster + sidebar (mobile: poster only; desktop: poster stays in hero, so we show poster on mobile here) */}
-        <div className="md:hidden mb-8 -mt-24 relative z-10 mx-auto w-[160px] rounded-xl overflow-hidden border-2 border-white shadow-xl aspect-2/3">
-          <Image src={drama.posterUrl} alt={drama.title} fill className="object-cover" sizes="160px" />
+        {/* Poster + primary CTA on mobile (desktop hero already has CTAs) */}
+        <div className="md:hidden mb-8 -mt-24 relative z-10 mx-auto w-[200px] rounded-xl overflow-hidden shadow-xl">
+          <div className="relative aspect-2/3 border-2 border-white">
+            <Image src={drama.posterUrl} alt={drama.title} fill className="object-cover" sizes="200px" />
+          </div>
+          <div className="mt-4 space-y-2">
+            {isFreeMovie ? (
+              <Link
+                href={`/drama/${id}/watch`}
+                className="gradient-btn block w-full text-center py-3 rounded-xl font-semibold text-white"
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <FiPlay /> Watch Now
+                </span>
+              </Link>
+            ) : drama.contentType === 'movie' && drama.price != null && drama.price > 0 ? (
+              hasPurchasedMovie ? (
+                <Link
+                  href={`/drama/${id}/watch`}
+                  className="gradient-btn block w-full text-center py-3 rounded-xl font-semibold text-white"
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    <FiPlay /> Watch
+                  </span>
+                </Link>
+              ) : (
+                <Link
+                  href={`/payment?type=movie&id=${id}&amount=${drama.price}&title=${encodeURIComponent(
+                    drama.title,
+                  )}`}
+                  className="gradient-btn block w-full text-center py-3 rounded-xl font-semibold text-white"
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    <FiDollarSign /> Buy ${drama.price.toFixed(2)}
+                  </span>
+                </Link>
+              )
+            ) : drama.contentType === 'series' ? (
+              <>
+                <Link
+                  href={`/drama/${id}/watch?ep=1`}
+                  className="gradient-btn block w-full text-center py-3 rounded-xl font-semibold text-white"
+                >
+                  <span className="flex items-center justify-center gap-2">
+                    <FiPlay /> Watch
+                  </span>
+                </Link>
+                {drama.monthlyPrice != null && (
+                  <Link
+                    href={`/payment?type=subscription&id=${id}&amount=${drama.monthlyPrice}&title=${encodeURIComponent(
+                      drama.title,
+                    )}`}
+                    className="block w-full text-center py-3 rounded-xl font-semibold border-2 border-[#E31837] text-[#E31837] hover:bg-[#E31837]/5 transition-colors"
+                  >
+                    Subscribe ${drama.monthlyPrice.toFixed(2)}/mo
+                  </Link>
+                )}
+              </>
+            ) : (
+              <Link
+                href={`/drama/${id}/watch`}
+                className="gradient-btn block w-full text-center py-3 rounded-xl font-semibold text-white"
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <FiPlay /> Watch Now
+                </span>
+              </Link>
+            )}
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-8">

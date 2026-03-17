@@ -49,6 +49,8 @@ export interface MovieCard {
   year?: string;
   /** One-time price for movies (USD) */
   price?: number;
+  /** Number of free episodes (series) or 1 if movie is fully free */
+  freeEpisodesCount?: number;
 }
 
 /** Featured item for home hero carousel */
@@ -86,6 +88,7 @@ function rowToCard(row: MovieRow): MovieCard {
     genres,
     year,
     ...(contentType === 'movie' && row.price != null && { price: Number(row.price) }),
+    freeEpisodesCount: row.free_episodes_count != null ? Number(row.free_episodes_count) : undefined,
   };
 }
 
@@ -142,6 +145,49 @@ export async function getMovies(options?: {
       return (data as MovieRow[]).map(rowToCard);
     },
     ['movies', type, status],
+    { revalidate: 60 }
+  )();
+}
+
+export async function getMoviesPage(options: {
+  type?: 'single' | 'series';
+  status?: string;
+  page: number;
+  pageSize: number;
+}): Promise<{ items: MovieCard[]; total: number }> {
+  const status = options.status ?? 'published';
+  const type = options.type ?? 'all';
+  const pageSize = Math.max(1, Math.min(100, Math.floor(options.pageSize)));
+  const page = Math.max(1, Math.floor(options.page));
+
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  return unstable_cache(
+    async () => {
+      const supabase = createAnonClient();
+      let query = supabase
+        .from('movies')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .eq('status', status);
+      if (type !== 'all') {
+        query = query.eq('type', type);
+      }
+
+      const { data, error, count } = await query.range(from, to);
+
+      if (error) {
+        console.error('getMoviesPage error:', error);
+        return { items: [], total: 0 };
+      }
+
+      return {
+        items: (data as MovieRow[]).map(rowToCard),
+        total: count ?? 0,
+      };
+    },
+    ['movies-page', type, status, String(page), String(pageSize)],
     { revalidate: 60 }
   )();
 }

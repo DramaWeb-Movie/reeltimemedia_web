@@ -23,7 +23,7 @@ function CardSlot({
   const isSeries = drama.contentType === 'series' || drama.episodes > 1;
   const isMovie = drama.contentType === 'movie' || (!isSeries && drama.episodes <= 1);
   return (
-    <div className="w-[160px] sm:w-[180px] md:w-[200px] lg:w-[220px] shrink-0">
+    <div className="shrink-0 w-1/2 sm:w-1/3 md:w-1/4 lg:w-1/5 max-w-xs">
       <DramaCardCompact
         id={drama.id}
         title={drama.title}

@@ -306,18 +306,18 @@ export default function ProfilePage() {
               <p className="text-gray-400 text-sm max-w-xs mb-6">
                 {t('noPurchasesDesc')}
               </p>
-              <a
+              <Link
                 href="/movies"
                 className="inline-flex items-center gap-2 bg-[#E31837] hover:bg-[#c0152f] text-white font-semibold px-6 py-3 rounded-xl transition-colors"
               >
                 <FiPlay className="text-lg" />
                 {t('browseMovies')}
-              </a>
+              </Link>
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
               {purchases.map((drama) => (
-                <a key={drama.id} href={`/drama/${drama.id}/watch`} className="group">
+                <Link key={drama.id} href={`/drama/${drama.id}/watch`} className="group">
                   <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden hover:border-[#E31837]/50 transition-all duration-200 shadow-sm">
                     <div className="relative aspect-2/3">
                       <img
@@ -345,7 +345,7 @@ export default function ProfilePage() {
                       <p className="text-xs text-gray-400 mt-1">{drama.releaseYear}</p>
                     </div>
                   </div>
-                </a>
+                </Link>
               ))}
             </div>
           )}
