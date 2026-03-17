@@ -85,7 +85,17 @@
     "noResultsFound": "No results found",
     "tryDifferent": "Try a different title or check the spelling",
     "results": "{count} result for \"{query}\"",
-    "resultsPlural": "{count} results for \"{query}\""
+    "resultsPlural": "{count} results for \"{query}\"",
+    "filterAllAccess": "All access types",
+    "filterFree": "Free",
+    "filterPaid": "Paid",
+    "filterAllTypes": "All types",
+    "filterMovies": "Movies",
+    "filterSeries": "Series",
+    "labelAccess": "Access",
+    "labelType": "Content type",
+    "labelGenre": "Genre",
+    "filterAllGenres": "All genres"
   },
   "movies": {
     "title": "Movies",
