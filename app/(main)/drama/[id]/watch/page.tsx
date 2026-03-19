@@ -11,7 +11,7 @@ import {
 } from 'react-icons/fi';
 import DramaCardCompact from '@/components/drama/DramaCardCompact';
 import { DRAMA_CARD_GRID } from '@/lib/drama-grid';
-import { getMovieById, getMovies } from '@/lib/movies';
+import { getMovieById, getRecommendedMovies } from '@/lib/movies';
 import WatchAccessGate from '@/components/watch/WatchAccessGate';
 
 export default async function WatchPage({
@@ -57,16 +57,8 @@ export default async function WatchPage({
     ? Math.max(1, Math.round(currentEpisode.duration / 60))
     : undefined;
 
-  // Simple recommendations: same content type, overlapping genre, excluding current title
-  const allMovies = await getMovies({ status: 'published' });
-  const genreSet = new Set(genres);
-  const recommendedRaw = allMovies.filter((m) => {
-    if (m.id === id) return false;
-    if (m.contentType !== contentType) return false;
-    if (!genres?.length || !m.genres?.length) return true;
-    return m.genres.some((g) => genreSet.has(g));
-  });
-  const recommended = (recommendedRaw.length ? recommendedRaw : allMovies.filter((m) => m.id !== id)).slice(0, 5);
+  // Recommendations: filtered server-side by content type + genre overlap
+  const recommended = await getRecommendedMovies(id, contentType ?? 'movie', genres ?? [], 5);
 
   return (
     <div className="min-h-screen bg-gray-50 pt-14 sm:pt-20">

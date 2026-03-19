@@ -14,6 +14,18 @@ import { processWebhook, BarayWebhookPayload } from '@/lib/baray';
  */
 export async function POST(request: NextRequest) {
   try {
+    // Verify webhook secret header if BARAY_WEBHOOK_SECRET is configured.
+    // Set this to a shared secret agreed upon with Baray (or any reverse-proxy layer)
+    // so that only legitimate calls from Baray can trigger payment fulfilment.
+    const webhookSecret = process.env.BARAY_WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const incomingSecret = request.headers.get('x-webhook-secret');
+      if (incomingSecret !== webhookSecret) {
+        console.warn('Webhook rejected: invalid or missing x-webhook-secret header');
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    }
+
     const body: BarayWebhookPayload = await request.json();
     const { encrypted_order_id, bank } = body;
 

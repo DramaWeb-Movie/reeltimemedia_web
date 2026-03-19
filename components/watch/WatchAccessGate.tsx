@@ -9,8 +9,6 @@ import { useTranslations } from 'next-intl';
 interface WatchAccessGateProps {
   contentId: string;
   contentType: 'movie' | 'series';
-  /** @deprecated Not used; video is streamed via /api/watch/stream to avoid exposing URLs */
-  videoUrl?: string;
   title: string;
   episodeNum?: number;
   isSinglePart: boolean;
@@ -22,7 +20,6 @@ interface WatchAccessGateProps {
 export default function WatchAccessGate({
   contentId,
   contentType,
-  videoUrl,
   title,
   episodeNum,
   isSinglePart,
@@ -91,7 +88,7 @@ export default function WatchAccessGate({
         controls
         autoPlay
         playsInline
-        preload="auto"
+        preload="metadata"
         src={streamUrl}
         title={
           isSinglePart || !episodeNum

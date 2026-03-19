@@ -1,4 +1,4 @@
-// Core types for the DramaWeb application
+// Core types for the ReelTime Media application
 
 /** Single part: pay per movie. Series: pay monthly subscription. */
 export type ContentType = 'movie' | 'series';
@@ -20,7 +20,7 @@ export interface Drama {
   status: 'ongoing' | 'completed';
   totalEpisodes: number;
   /** movie = pay per title, series = monthly subscription */
-  contentType?: ContentType;
+  contentType: ContentType;
   /** One-time purchase price (movies only), USD */
   price?: number;
   /** Rent price (movies only), USD */
@@ -39,7 +39,8 @@ export interface Episode {
   episodeNumber: number;
   title: string;
   description?: string;
-  duration: number; // in minutes
+  /** Duration in seconds */
+  duration: number;
   releaseDate: string;
   videoUrl: string;
   thumbnailUrl?: string;
@@ -82,4 +83,3 @@ export interface Genre {
   name: string;
   slug: string;
 }
-

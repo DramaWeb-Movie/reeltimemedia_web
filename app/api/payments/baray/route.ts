@@ -56,6 +56,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate amount against the real price stored in the database to prevent price manipulation
+    if (contentId && contentType === 'movie') {
+      const { data: movie, error: movieError } = await supabase
+        .from('movies')
+        .select('price')
+        .eq('id', contentId)
+        .eq('status', 'published')
+        .maybeSingle();
+
+      if (movieError || !movie) {
+        return NextResponse.json(
+          { success: false, error: { message: 'Content not found.' } },
+          { status: 404 }
+        );
+      }
+
+      const expectedPrice = parseFloat(movie.price ?? '0');
+      if (Math.abs(numericAmount - expectedPrice) > 0.01) {
+        return NextResponse.json(
+          { success: false, error: { message: 'Payment amount does not match the listed price.' } },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (contentId && contentType === 'subscription') {
+      const { data: plan, error: planError } = await supabase
+        .from('subscription_plans')
+        .select('monthly_price')
+        .eq('movie_id', contentId)
+        .maybeSingle();
+
+      if (!planError && plan) {
+        const expectedPrice = parseFloat(plan.monthly_price ?? '0');
+        if (Math.abs(numericAmount - expectedPrice) > 0.01) {
+          return NextResponse.json(
+            { success: false, error: { message: 'Payment amount does not match the listed price.' } },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     // Generate unique order ID  
     const orderId = generateOrderId('RTM'); // ReelTime Media prefix
 

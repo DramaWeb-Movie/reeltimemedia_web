@@ -8,11 +8,15 @@ import { FiArrowLeft, FiCreditCard, FiFilm, FiAlertCircle, FiShield, FiCheck } f
 import Button from '@/components/ui/Button';
 import { createClient } from '@/lib/supabase/client';
 
+/** Approximate USD → KHR conversion rate used for display purposes only */
+const KHR_RATE = 4100;
+
 function PaymentContent() {
   const searchParams = useSearchParams();
   const type = searchParams.get('type') || 'movie';
   const id = searchParams.get('id') || '';
-  const amount = Math.max(0, Number(searchParams.get('amount')) || 4.99);
+  const rawAmount = Number(searchParams.get('amount'));
+  const amount = rawAmount > 0 ? rawAmount : 0;
   const title = searchParams.get('title') || (type === 'subscription' ? 'Series subscription' : 'Movie purchase');
   const currency = (searchParams.get('currency') || 'USD').toUpperCase();
 
@@ -36,8 +40,8 @@ function PaymentContent() {
   }, []);
 
   const isSubscription = type === 'subscription';
-  const displayAmount = currency === 'KHR' ? (amount * 4100).toFixed(0) : amount.toFixed(2);
-  const paymentAmount = currency === 'KHR' ? amount * 4100 : amount;
+  const paymentAmount = currency === 'KHR' ? amount * KHR_RATE : amount;
+  const displayAmount = currency === 'KHR' ? paymentAmount.toFixed(0) : amount.toFixed(2);
 
   const handlePayment = async () => {
     if (!isAuthenticated) {

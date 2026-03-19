@@ -3,7 +3,7 @@ import HomeContent from '@/components/home/HomeContent';
 
 export default async function HomePage() {
   const [featuredItems, purchasedMovieIds] = await Promise.all([
-    getFeaturedMovies(10),
+    getFeaturedMovies(18),
     getPurchasedMovieIdsForCurrentUser(),
   ]);
 

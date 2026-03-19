@@ -1,11 +1,74 @@
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { FaStar } from 'react-icons/fa';
-import { FiPlay, FiCalendar, FiGlobe, FiFilm, FiDollarSign, FiUsers } from 'react-icons/fi';
-import { getMovieById } from '@/lib/movies';
+import { FiPlay, FiCalendar, FiGlobe, FiFilm, FiUsers } from 'react-icons/fi';
+import { getMovieById, hasPurchasedContent } from '@/lib/movies';
 import { getYoutubeEmbedUrl } from '@/lib/youtube';
-import { createClient } from '@/lib/supabase/server';
+import DramaActionButtons from '@/components/drama/DramaActionButtons';
+
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? '';
+
+function absoluteUrl(url: string | undefined | null): string | undefined {
+  if (!url) return undefined;
+  if (/^https?:\/\//i.test(url)) return url;
+  try {
+    return new URL(url, SITE_URL).toString();
+  } catch {
+    return undefined;
+  }
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const drama = await getMovieById(id);
+
+  if (!drama) {
+    return {
+      title: 'Movie not found - ReelTime Media',
+      description: 'This movie is not available.',
+    };
+  }
+
+  const title = drama.titleKh ? `${drama.title} (${drama.titleKh})` : drama.title;
+  const description =
+    drama.description?.trim() ||
+    `Watch ${drama.title} on ReelTime Media.`;
+  const url = absoluteUrl(`/drama/${id}`) ?? `/drama/${id}`;
+  const image = absoluteUrl(drama.posterUrl || drama.bannerUrl);
+
+  return {
+    title: `${drama.title} - ReelTime Media`,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'video.movie',
+      url,
+      title,
+      description,
+      siteName: 'ReelTime Media',
+      images: image
+        ? [
+            {
+              url: image,
+              alt: drama.title,
+            },
+          ]
+        : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: image ? [image] : undefined,
+    },
+  };
+}
 
 export default async function DramaDetailPage({
   params,
@@ -21,22 +84,11 @@ export default async function DramaDetailPage({
 
   const trailerEmbedUrl = drama.trailerUrl ? getYoutubeEmbedUrl(drama.trailerUrl) : null;
   const isFreeMovie = drama.contentType === 'movie' && (drama.price == null || drama.price === 0);
+  const isPaidMovie = drama.contentType === 'movie' && drama.price != null && drama.price > 0;
 
-  let hasPurchasedMovie = false;
-  if (drama.contentType === 'movie' && drama.price != null && drama.price > 0) {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      const { data: purchase } = await supabase
-        .from('purchases')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('content_id', id)
-        .eq('content_type', 'movie')
-        .maybeSingle();
-      hasPurchasedMovie = !!purchase;
-    }
-  }
+  const hasPurchasedMovie = isPaidMovie
+    ? await hasPurchasedContent(id, 'movie')
+    : false;
 
   const heroImage = drama.bannerUrl || drama.posterUrl;
 
@@ -105,54 +157,13 @@ export default async function DramaDetailPage({
             </div>
             {/* Action buttons in hero (desktop/tablet only) */}
             <div className="mt-5 hidden md:flex flex-wrap gap-3">
-              {isFreeMovie ? (
-                <Link
-                  href={`/drama/${id}/watch`}
-                  className="gradient-btn inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-white shadow-lg"
-                >
-                  <FiPlay className="text-lg" /> Watch Now
-                </Link>
-              ) : drama.contentType === 'movie' && drama.price != null && drama.price > 0 ? (
-                hasPurchasedMovie ? (
-                  <Link
-                    href={`/drama/${id}/watch`}
-                    className="gradient-btn inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-white shadow-lg"
-                  >
-                    <FiPlay className="text-lg" /> Watch
-                  </Link>
-                ) : (
-                  <Link
-                    href={`/payment?type=movie&id=${id}&amount=${drama.price}&title=${encodeURIComponent(drama.title)}`}
-                    className="gradient-btn inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-white shadow-lg"
-                  >
-                    <FiDollarSign className="text-lg" /> Buy ${drama.price.toFixed(2)}
-                  </Link>
-                )
-              ) : drama.contentType === 'series' ? (
-                <>
-                  <Link
-                    href={`/drama/${id}/watch?ep=1`}
-                    className="gradient-btn inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-white shadow-lg"
-                  >
-                    <FiPlay className="text-lg" /> Watch
-                  </Link>
-                  {drama.monthlyPrice != null && (
-                    <Link
-                      href={`/payment?type=subscription&id=${id}&amount=${drama.monthlyPrice}&title=${encodeURIComponent(drama.title)}`}
-                      className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold bg-white/10 text-white border border-white/30 hover:bg-white/20 transition-colors"
-                    >
-                      <FiDollarSign className="text-lg" /> Subscribe ${drama.monthlyPrice.toFixed(2)}/mo
-                    </Link>
-                  )}
-                </>
-              ) : (
-                <Link
-                  href={`/drama/${id}/watch`}
-                  className="gradient-btn inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-white shadow-lg"
-                >
-                  <FiPlay className="text-lg" /> Watch Now
-                </Link>
-              )}
+              <DramaActionButtons
+                id={id}
+                drama={drama}
+                isFreeMovie={isFreeMovie}
+                hasPurchasedMovie={hasPurchasedMovie}
+                variant="hero"
+              />
             </div>
           </div>
         </div>
@@ -166,68 +177,12 @@ export default async function DramaDetailPage({
             <Image src={drama.posterUrl} alt={drama.title} fill className="object-cover" sizes="200px" />
           </div>
           <div className="mt-4 space-y-2">
-            {isFreeMovie ? (
-              <Link
-                href={`/drama/${id}/watch`}
-                className="gradient-btn block w-full text-center py-3 rounded-xl font-semibold text-white"
-              >
-                <span className="flex items-center justify-center gap-2">
-                  <FiPlay /> Watch Now
-                </span>
-              </Link>
-            ) : drama.contentType === 'movie' && drama.price != null && drama.price > 0 ? (
-              hasPurchasedMovie ? (
-                <Link
-                  href={`/drama/${id}/watch`}
-                  className="gradient-btn block w-full text-center py-3 rounded-xl font-semibold text-white"
-                >
-                  <span className="flex items-center justify-center gap-2">
-                    <FiPlay /> Watch
-                  </span>
-                </Link>
-              ) : (
-                <Link
-                  href={`/payment?type=movie&id=${id}&amount=${drama.price}&title=${encodeURIComponent(
-                    drama.title,
-                  )}`}
-                  className="gradient-btn block w-full text-center py-3 rounded-xl font-semibold text-white"
-                >
-                  <span className="flex items-center justify-center gap-2">
-                    <FiDollarSign /> Buy ${drama.price.toFixed(2)}
-                  </span>
-                </Link>
-              )
-            ) : drama.contentType === 'series' ? (
-              <>
-                <Link
-                  href={`/drama/${id}/watch?ep=1`}
-                  className="gradient-btn block w-full text-center py-3 rounded-xl font-semibold text-white"
-                >
-                  <span className="flex items-center justify-center gap-2">
-                    <FiPlay /> Watch
-                  </span>
-                </Link>
-                {drama.monthlyPrice != null && (
-                  <Link
-                    href={`/payment?type=subscription&id=${id}&amount=${drama.monthlyPrice}&title=${encodeURIComponent(
-                      drama.title,
-                    )}`}
-                    className="block w-full text-center py-3 rounded-xl font-semibold border-2 border-[#E31837] text-[#E31837] hover:bg-[#E31837]/5 transition-colors"
-                  >
-                    Subscribe ${drama.monthlyPrice.toFixed(2)}/mo
-                  </Link>
-                )}
-              </>
-            ) : (
-              <Link
-                href={`/drama/${id}/watch`}
-                className="gradient-btn block w-full text-center py-3 rounded-xl font-semibold text-white"
-              >
-                <span className="flex items-center justify-center gap-2">
-                  <FiPlay /> Watch Now
-                </span>
-              </Link>
-            )}
+            <DramaActionButtons
+              id={id}
+              drama={drama}
+              isFreeMovie={isFreeMovie}
+              hasPurchasedMovie={hasPurchasedMovie}
+            />
           </div>
         </div>
 
@@ -240,36 +195,12 @@ export default async function DramaDetailPage({
                   <Image src={drama.posterUrl} alt={drama.title} fill className="object-cover" sizes="320px" />
                 </div>
                 <div className="p-4 space-y-3">
-                  {isFreeMovie ? (
-                    <Link href={`/drama/${id}/watch`} className="gradient-btn block w-full text-center py-3 rounded-xl font-semibold text-white">
-                      <span className="flex items-center justify-center gap-2"><FiPlay /> Watch Now</span>
-                    </Link>
-                  ) : drama.contentType === 'movie' && drama.price != null && drama.price > 0 ? (
-                    hasPurchasedMovie ? (
-                      <Link href={`/drama/${id}/watch`} className="gradient-btn block w-full text-center py-3 rounded-xl font-semibold text-white">
-                        <span className="flex items-center justify-center gap-2"><FiPlay /> Watch</span>
-                      </Link>
-                    ) : (
-                      <Link href={`/payment?type=movie&id=${id}&amount=${drama.price}&title=${encodeURIComponent(drama.title)}`} className="gradient-btn block w-full text-center py-3 rounded-xl font-semibold text-white">
-                        <span className="flex items-center justify-center gap-2"><FiDollarSign /> Buy ${drama.price.toFixed(2)}</span>
-                      </Link>
-                    )
-                  ) : drama.contentType === 'series' ? (
-                    <>
-                      <Link href={`/drama/${id}/watch?ep=1`} className="gradient-btn block w-full text-center py-3 rounded-xl font-semibold text-white">
-                        <span className="flex items-center justify-center gap-2"><FiPlay /> Watch</span>
-                      </Link>
-                      {drama.monthlyPrice != null && (
-                        <Link href={`/payment?type=subscription&id=${id}&amount=${drama.monthlyPrice}&title=${encodeURIComponent(drama.title)}`} className="block w-full text-center py-3 rounded-xl font-semibold border-2 border-[#E31837] text-[#E31837] hover:bg-[#E31837]/5 transition-colors">
-                          Subscribe ${drama.monthlyPrice.toFixed(2)}/mo
-                        </Link>
-                      )}
-                    </>
-                  ) : (
-                    <Link href={`/drama/${id}/watch`} className="gradient-btn block w-full text-center py-3 rounded-xl font-semibold text-white">
-                      <span className="flex items-center justify-center gap-2"><FiPlay /> Watch Now</span>
-                    </Link>
-                  )}
+                  <DramaActionButtons
+                    id={id}
+                    drama={drama}
+                    isFreeMovie={isFreeMovie}
+                    hasPurchasedMovie={hasPurchasedMovie}
+                  />
                 </div>
               </div>
             </div>

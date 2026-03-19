@@ -3,8 +3,7 @@
  */
 import { unstable_cache } from 'next/cache';
 import { createAnonClient, createClient } from '@/lib/supabase/server';
-import type { Drama } from '@/types';
-import type { ContentType } from '@/types';
+import type { Drama, ContentType } from '@/types';
 
 export interface MovieRow {
   id: string;
@@ -62,6 +61,23 @@ export interface FeaturedMovie extends MovieCard {
 }
 
 const PLACEHOLDER_IMAGE = 'https://placehold.co/400x600/1a1a1a/808080?text=No+Image';
+
+/** Row shape returned by the series_episodes table */
+interface SeriesEpisodeRow {
+  id: string;
+  episode_number: number;
+  title: string;
+  duration: number;
+  video_url: string;
+}
+
+// Columns needed for card rendering — avoids fetching unused heavy fields
+const CARD_COLUMNS =
+  'id, title, title_kh, description, genre, release_date, thumbnail_url, type, price, free_episodes_count, total_episodes';
+
+// Columns needed for the full detail / watch page
+const DETAIL_COLUMNS =
+  'id, title, title_kh, description, genre, release_date, duration, thumbnail_url, video_url, status, type, price, free_episodes_count, subscription_plan_id, total_episodes, cast, country, trailer_url';
 
 function rowToCard(row: MovieRow): MovieCard {
   const contentType: ContentType = row.type === 'series' ? 'series' : 'movie';
@@ -131,7 +147,7 @@ export async function getMovies(options?: {
       const supabase = createAnonClient();
       let query = supabase
         .from('movies')
-        .select('*')
+        .select(CARD_COLUMNS)
         .order('created_at', { ascending: false })
         .eq('status', status);
       if (type !== 'all') {
@@ -168,7 +184,7 @@ export async function getMoviesPage(options: {
       const supabase = createAnonClient();
       let query = supabase
         .from('movies')
-        .select('*', { count: 'exact' })
+        .select(`${CARD_COLUMNS}, count()`, { count: 'exact' })
         .order('created_at', { ascending: false })
         .eq('status', status);
       if (type !== 'all') {
@@ -192,100 +208,117 @@ export async function getMoviesPage(options: {
   )();
 }
 
-/** Fetch a single movie by id for the detail page */
-export async function getMovieById(id: string): Promise<Drama | null> {
-  const supabase = await createClient();
-  const { data: row, error } = await supabase
-    .from('movies')
-    .select('*')
-    .eq('id', id)
-    .eq('status', 'published')
-    .single();
-
-  if (error || !row) {
-    if (error?.code !== 'PGRST116') console.error('getMovieById error:', error);
-    return null;
-  }
-
-  const r = row as MovieRow;
-  const contentType: ContentType = r.type === 'series' ? 'series' : 'movie';
-  const totalEpisodes =
-    contentType === 'series' ? Math.max(1, r.total_episodes ?? 1) : 1;
-  const posterUrl = r.thumbnail_url?.trim() || PLACEHOLDER_IMAGE;
-
-  let monthlyPrice: number | undefined;
-  if (r.subscription_plan_id) {
-    const { data: plan } = await supabase
-      .from('subscription_plans')
-      .select('price')
-      .eq('id', r.subscription_plan_id)
+/**
+ * Fetch a single movie by id for the detail/watch page.
+ * Uses the anon client so the result can be cached with unstable_cache.
+ * The subscription_plans and series_episodes fetches run in parallel.
+ * Cached for 60 seconds per movie id.
+ */
+export const getMovieById = unstable_cache(
+  async (id: string): Promise<Drama | null> => {
+    const supabase = createAnonClient();
+    const { data: row, error } = await supabase
+      .from('movies')
+      .select(DETAIL_COLUMNS)
+      .eq('id', id)
+      .eq('status', 'published')
       .single();
-    if (plan?.price != null) monthlyPrice = Number(plan.price);
-  }
 
-  const baseEpisode = {
-    dramaId: r.id,
-    duration: r.duration ?? 0,
-    releaseDate: r.release_date ?? '',
-    thumbnailUrl: r.thumbnail_url ?? undefined,
-  };
+    if (error || !row) {
+      if (error?.code !== 'PGRST116') console.error('getMovieById error:', error);
+      return null;
+    }
 
-  let episodes: Drama['episodes'];
+    const r = row as MovieRow;
+    const contentType: ContentType = r.type === 'series' ? 'series' : 'movie';
+    const totalEpisodes =
+      contentType === 'series' ? Math.max(1, r.total_episodes ?? 1) : 1;
+    const posterUrl = r.thumbnail_url?.trim() || PLACEHOLDER_IMAGE;
 
-  if (contentType === 'movie') {
-    episodes = r.video_url
-      ? [{ id: `${r.id}-1`, ...baseEpisode, episodeNumber: 1, title: r.title, videoUrl: r.video_url }]
-      : [];
-  } else {
-    // Fetch per-episode video URLs from series_episodes table
-    const { data: seriesEpisodes } = await supabase
-      .from('series_episodes')
-      .select('id, episode_number, title, duration, video_url')
-      .eq('movie_id', r.id)
-      .order('episode_number', { ascending: true });
+    // Fetch subscription plan price and series episodes in parallel
+    const [planResult, seriesEpisodesResult] = await Promise.all([
+      r.subscription_plan_id
+        ? supabase
+            .from('subscription_plans')
+            .select('price')
+            .eq('id', r.subscription_plan_id)
+            .single()
+        : Promise.resolve({ data: null, error: null }),
+      contentType === 'series'
+        ? supabase
+            .from('series_episodes')
+            .select('id, episode_number, title, duration, video_url')
+            .eq('movie_id', r.id)
+            .order('episode_number', { ascending: true })
+        : Promise.resolve({ data: null, error: null }),
+    ]);
 
-    episodes = Array.from({ length: totalEpisodes }, (_, i) => {
-      const epNum = i + 1;
-      const dbEp = seriesEpisodes?.find((e) => e.episode_number === epNum);
-      return {
-        id: dbEp?.id ?? `${r.id}-${epNum}`,
-        dramaId: r.id,
-        episodeNumber: epNum,
-        title: dbEp?.title ?? `Episode ${epNum}`,
-        duration: dbEp?.duration ?? r.duration ?? 0,
-        releaseDate: r.release_date ?? '',
-        thumbnailUrl: r.thumbnail_url ?? undefined,
-        videoUrl: dbEp?.video_url?.trim() ?? '',
-      };
-    });
-  }
+    const monthlyPrice =
+      planResult.data && 'price' in planResult.data && planResult.data.price != null
+        ? Number(planResult.data.price)
+        : undefined;
 
-  const drama: Drama = {
-    id: r.id,
-    title: r.title,
-    titleKh: r.title_kh?.trim() || undefined,
-    description: r.description ?? '',
-    posterUrl,
-    bannerUrl: r.thumbnail_url?.trim() || posterUrl,
-    releaseYear: r.release_date
-      ? new Date(r.release_date).getFullYear()
-      : new Date().getFullYear(),
-    rating: 8.0,
-    genres: r.genre ? r.genre.split(',').map((g) => g.trim()).filter(Boolean) : [],
-    country: r.country ?? '',
-    episodes,
-    cast: parseCast(r.cast),
-    status: (r.status === 'published' ? 'completed' : 'ongoing') as 'ongoing' | 'completed',
-    totalEpisodes,
-    contentType,
-    price: r.price != null ? Number(r.price) : undefined,
-    rentPrice: undefined,
-    monthlyPrice,
-    freeEpisodesCount: r.free_episodes_count != null ? Number(r.free_episodes_count) : 0,
-    trailerUrl: r.trailer_url?.trim() || undefined,
-  };
-  return drama;
-}
+    const seriesEpisodes = (seriesEpisodesResult.data as SeriesEpisodeRow[] | null) ?? [];
+
+    const baseEpisode = {
+      dramaId: r.id,
+      duration: r.duration ?? 0,
+      releaseDate: r.release_date ?? '',
+      thumbnailUrl: r.thumbnail_url ?? undefined,
+    };
+
+    let episodes: Drama['episodes'];
+
+    if (contentType === 'movie') {
+      episodes = r.video_url
+        ? [{ id: `${r.id}-1`, ...baseEpisode, episodeNumber: 1, title: r.title, videoUrl: r.video_url }]
+        : [];
+    } else {
+      episodes = Array.from({ length: totalEpisodes }, (_, i) => {
+        const epNum = i + 1;
+        const dbEp = seriesEpisodes.find((e) => e.episode_number === epNum);
+        return {
+          id: dbEp?.id ?? `${r.id}-${epNum}`,
+          dramaId: r.id,
+          episodeNumber: epNum,
+          title: dbEp?.title ?? `Episode ${epNum}`,
+          duration: dbEp?.duration ?? r.duration ?? 0,
+          releaseDate: r.release_date ?? '',
+          thumbnailUrl: r.thumbnail_url ?? undefined,
+          videoUrl: dbEp?.video_url?.trim() ?? '',
+        };
+      });
+    }
+
+    const drama: Drama = {
+      id: r.id,
+      title: r.title,
+      titleKh: r.title_kh?.trim() || undefined,
+      description: r.description ?? '',
+      posterUrl,
+      bannerUrl: r.thumbnail_url?.trim() || posterUrl,
+      releaseYear: r.release_date
+        ? new Date(r.release_date).getFullYear()
+        : new Date().getFullYear(),
+      rating: 8.0,
+      genres: r.genre ? r.genre.split(',').map((g) => g.trim()).filter(Boolean) : [],
+      country: r.country ?? '',
+      episodes,
+      cast: parseCast(r.cast),
+      status: (r.status === 'published' ? 'completed' : 'ongoing') as 'ongoing' | 'completed',
+      totalEpisodes,
+      contentType,
+      price: r.price != null ? Number(r.price) : undefined,
+      rentPrice: undefined,
+      monthlyPrice,
+      freeEpisodesCount: r.free_episodes_count != null ? Number(r.free_episodes_count) : 0,
+      trailerUrl: r.trailer_url?.trim() || undefined,
+    };
+    return drama;
+  },
+  ['movie-by-id'],
+  { revalidate: 60 }
+);
 
 /** Fetch featured items for home hero (published, any type, limit 10). Cached 60s. */
 export async function getFeaturedMovies(limit = 10): Promise<FeaturedMovie[]> {
@@ -294,7 +327,7 @@ export async function getFeaturedMovies(limit = 10): Promise<FeaturedMovie[]> {
       const supabase = createAnonClient();
       const { data, error } = await supabase
         .from('movies')
-        .select('*')
+        .select(CARD_COLUMNS)
         .eq('status', 'published')
         .order('created_at', { ascending: false })
         .limit(limit);
@@ -308,6 +341,83 @@ export async function getFeaturedMovies(limit = 10): Promise<FeaturedMovie[]> {
     ['featured-movies', String(limit)],
     { revalidate: 60 }
   )();
+}
+
+/**
+ * Fetch recommendations for the watch page.
+ * Filters by content type and genre overlap directly in the DB query —
+ * avoids loading the full catalogue just to filter client-side.
+ * Cached per (excludeId + contentType + genres) for 5 minutes.
+ */
+export async function getRecommendedMovies(
+  excludeId: string,
+  contentType: ContentType,
+  genres: string[],
+  limit = 5
+): Promise<MovieCard[]> {
+  const dbType = contentType === 'series' ? 'series' : 'single';
+  const genreKey = [...genres].sort().join(',');
+
+  return unstable_cache(
+    async () => {
+      const supabase = createAnonClient();
+
+      let query = supabase
+        .from('movies')
+        .select(CARD_COLUMNS)
+        .eq('status', 'published')
+        .eq('type', dbType)
+        .neq('id', excludeId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      // Filter by genre overlap in the DB so we only fetch relevant rows
+      if (genres.length > 0) {
+        const genreFilters = genres.map((g) => `genre.ilike.%${g}%`).join(',');
+        query = query.or(genreFilters);
+      }
+
+      const { data, error } = await query;
+
+      // Fallback: if no genre matches, return any recent titles of the same type
+      if (error || !data?.length) {
+        const { data: fallback } = await supabase
+          .from('movies')
+          .select(CARD_COLUMNS)
+          .eq('status', 'published')
+          .eq('type', dbType)
+          .neq('id', excludeId)
+          .order('created_at', { ascending: false })
+          .limit(limit);
+        return ((fallback ?? []) as MovieRow[]).map(rowToCard);
+      }
+
+      return (data as MovieRow[]).map(rowToCard);
+    },
+    ['recommendations', excludeId, contentType, genreKey, String(limit)],
+    { revalidate: 300 }
+  )();
+}
+
+/**
+ * Server-only: check whether the current user has purchased a specific piece of content.
+ * Use this on individual detail/watch pages instead of loading the full purchase list.
+ */
+export async function hasPurchasedContent(
+  contentId: string,
+  contentType: 'movie' | 'subscription' = 'movie'
+): Promise<boolean> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+  const { data } = await supabase
+    .from('purchases')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('content_id', contentId)
+    .eq('content_type', contentType)
+    .maybeSingle();
+  return !!data;
 }
 
 /** Server-only: get current user's purchased movie IDs (for Watch vs Buy). Not cached. */

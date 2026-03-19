@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 interface AccessStatus {
@@ -34,11 +34,7 @@ export function usePaymentAccess(
     subscriptionActive: false,
   });
 
-  useEffect(() => {
-    checkAccess();
-  }, [contentType, contentId, isFreeEpisode, isFreeMovie]);
-
-  const checkAccess = async () => {
+  const checkAccess = useCallback(async () => {
     try {
       // Free movie — no login required, anyone can watch
       if (contentType === 'movie' && isFreeMovie) {
@@ -79,11 +75,11 @@ export function usePaymentAccess(
       if (contentType === 'series') {
         const { data: subscription } = await supabase
           .from('subscriptions')
-          .select('*')
+          .select('expires_at')
           .eq('user_id', user.id)
           .eq('status', 'active')
           .gt('expires_at', new Date().toISOString())
-          .single();
+          .maybeSingle();
 
         setStatus({
           hasAccess: !!subscription,
@@ -99,10 +95,10 @@ export function usePaymentAccess(
       if (contentType === 'movie' && contentId) {
         const { data: purchase } = await supabase
           .from('purchases')
-          .select('*')
+          .select('id')
           .eq('user_id', user.id)
           .eq('content_id', contentId)
-          .single();
+          .maybeSingle();
 
         setStatus({
           hasAccess: !!purchase,
@@ -128,7 +124,11 @@ export function usePaymentAccess(
         subscriptionActive: false,
       });
     }
-  };
+  }, [contentType, contentId, isFreeEpisode, isFreeMovie]);
+
+  useEffect(() => {
+    checkAccess();
+  }, [checkAccess]);
 
   return status;
 }
