@@ -25,7 +25,6 @@ export interface MovieRow {
   cast: string | null;
   director: string | null;
   producer: string | null;
-  country: string | null;
   language: string | null;
   content_rating: string | null;
   tags: string | null;
@@ -77,7 +76,7 @@ const CARD_COLUMNS =
 
 // Columns needed for the full detail / watch page
 const DETAIL_COLUMNS =
-  'id, title, title_kh, description, genre, release_date, duration, thumbnail_url, video_url, status, type, price, free_episodes_count, subscription_plan_id, total_episodes, cast, country, trailer_url';
+  'id, title, title_kh, description, genre, release_date, duration, thumbnail_url, video_url, status, type, price, free_episodes_count, subscription_plan_id, total_episodes, cast, trailer_url';
 
 function rowToCard(row: MovieRow): MovieCard {
   const contentType: ContentType = row.type === 'series' ? 'series' : 'movie';
@@ -184,7 +183,7 @@ export async function getMoviesPage(options: {
       const supabase = createAnonClient();
       let query = supabase
         .from('movies')
-        .select(`${CARD_COLUMNS}, count()`, { count: 'exact' })
+        .select(CARD_COLUMNS, { count: 'exact' })
         .order('created_at', { ascending: false })
         .eq('status', status);
       if (type !== 'all') {
@@ -210,13 +209,12 @@ export async function getMoviesPage(options: {
 
 /**
  * Fetch a single movie by id for the detail/watch page.
- * Uses the anon client so the result can be cached with unstable_cache.
+ * Uses the cookie-aware client so RLS policies work correctly for all users.
  * The subscription_plans and series_episodes fetches run in parallel.
- * Cached for 60 seconds per movie id.
+ * Use React's cache() at the callsite for per-request deduplication.
  */
-export const getMovieById = unstable_cache(
-  async (id: string): Promise<Drama | null> => {
-    const supabase = createAnonClient();
+export async function getMovieById(id: string): Promise<Drama | null> {
+    const supabase = await createClient();
     const { data: row, error } = await supabase
       .from('movies')
       .select(DETAIL_COLUMNS)
@@ -225,7 +223,9 @@ export const getMovieById = unstable_cache(
       .single();
 
     if (error || !row) {
-      if (error?.code !== 'PGRST116') console.error('getMovieById error:', error);
+      const code = (error as unknown as Record<string, unknown> | null)?.code;
+      const hasRealError = code && code !== 'PGRST116';
+      if (hasRealError) console.error('getMovieById error:', error);
       return null;
     }
 
@@ -302,7 +302,6 @@ export const getMovieById = unstable_cache(
         : new Date().getFullYear(),
       rating: 8.0,
       genres: r.genre ? r.genre.split(',').map((g) => g.trim()).filter(Boolean) : [],
-      country: r.country ?? '',
       episodes,
       cast: parseCast(r.cast),
       status: (r.status === 'published' ? 'completed' : 'ongoing') as 'ongoing' | 'completed',
@@ -315,10 +314,7 @@ export const getMovieById = unstable_cache(
       trailerUrl: r.trailer_url?.trim() || undefined,
     };
     return drama;
-  },
-  ['movie-by-id'],
-  { revalidate: 60 }
-);
+}
 
 /** Fetch featured items for home hero (published, any type, limit 10). Cached 60s. */
 export async function getFeaturedMovies(limit = 10): Promise<FeaturedMovie[]> {

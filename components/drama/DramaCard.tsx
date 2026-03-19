@@ -50,7 +50,7 @@ export default function DramaCard({ drama, index }: DramaCardProps) {
           {drama.titleKh && (
             <p className="text-sm text-gray-500 mb-2 line-clamp-1" lang="km">{drama.titleKh}</p>
           )}
-          <p className="text-sm text-gray-400 mb-3">{drama.releaseYear} • {drama.country}</p>
+          <p className="text-sm text-gray-400 mb-3">{drama.releaseYear}</p>
           <div className="flex flex-wrap gap-1.5">
             {drama.genres.slice(0, 2).map((genre) => (
               <span

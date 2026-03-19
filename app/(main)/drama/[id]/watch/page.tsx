@@ -7,7 +7,6 @@ import {
   FiChevronRight,
   FiInfo,
   FiCalendar,
-  FiGlobe,
 } from 'react-icons/fi';
 import DramaCardCompact from '@/components/drama/DramaCardCompact';
 import { DRAMA_CARD_GRID } from '@/lib/drama-grid';
@@ -38,7 +37,6 @@ export default async function WatchPage({
     genres,
     releaseYear,
     rating,
-    country,
     episodes,
   } = drama;
   const isSinglePart = contentType === 'movie' || totalEpisodes === 1;
@@ -130,11 +128,6 @@ export default async function WatchPage({
                     {releaseYear && (
                       <span className="inline-flex items-center gap-1">
                         <FiCalendar className="text-gray-400" /> {releaseYear}
-                      </span>
-                    )}
-                    {country && (
-                      <span className="inline-flex items-center gap-1">
-                        <FiGlobe className="text-gray-400" /> {country}
                       </span>
                     )}
                     {typeof rating === 'number' && (

@@ -3,8 +3,12 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { FaStar } from 'react-icons/fa';
-import { FiPlay, FiCalendar, FiGlobe, FiFilm, FiUsers } from 'react-icons/fi';
+import { FiPlay, FiCalendar, FiFilm, FiUsers } from 'react-icons/fi';
+import { cache } from 'react';
 import { getMovieById, hasPurchasedContent } from '@/lib/movies';
+
+// Deduplicate within a single render pass (generateMetadata + page component)
+const getMovie = cache(getMovieById);
 import { getYoutubeEmbedUrl } from '@/lib/youtube';
 import DramaActionButtons from '@/components/drama/DramaActionButtons';
 
@@ -26,7 +30,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const drama = await getMovieById(id);
+  const drama = await getMovie(id);
 
   if (!drama) {
     return {
@@ -76,7 +80,7 @@ export default async function DramaDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const drama = await getMovieById(id);
+  const drama = await getMovie(id);
 
   if (!drama) {
     notFound();
@@ -140,9 +144,6 @@ export default async function DramaDetailPage({
               </span>
               <span className="flex items-center gap-1.5">
                 <FiCalendar className="text-gray-400" /> {drama.releaseYear}
-              </span>
-              <span className="flex items-center gap-1.5">
-                <FiGlobe className="text-gray-400" /> {drama.country}
               </span>
               <span className="flex items-center gap-1.5">
                 <FiFilm className="text-gray-400" /> {drama.contentType === 'movie' ? 'Movie' : `${drama.totalEpisodes} Episodes`}

@@ -14,7 +14,6 @@ export interface Drama {
   releaseYear: number;
   rating: number;
   genres: string[];
-  country: string;
   episodes: Episode[];
   cast: CastMember[];
   status: 'ongoing' | 'completed';
