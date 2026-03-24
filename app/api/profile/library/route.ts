@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { parseNumericRating } from '@/lib/movies';
 import type { Drama } from '@/types';
 
 const PLACEHOLDER = 'https://placehold.co/400x600/f3f4f6/9ca3af?text=No+Image';
@@ -12,6 +13,7 @@ type MovieRow = {
   release_date: string | null;
   genre: string | null;
   country: string | null;
+  content_rating?: string | null;
 };
 
 /**
@@ -82,6 +84,7 @@ export async function GET() {
   for (const id of contentIds) {
     const row = byId.get(id);
     if (!row) continue;
+    const rating = parseNumericRating(row.content_rating);
     library.push({
       id: row.id,
       title: row.title,
@@ -91,7 +94,7 @@ export async function GET() {
       releaseYear: row.release_date
         ? new Date(row.release_date).getFullYear()
         : new Date().getFullYear(),
-      rating: 8.0,
+      ...(rating != null && { rating }),
       genres: row.genre
         ? row.genre.split(',').map((g: string) => g.trim()).filter(Boolean)
         : [],

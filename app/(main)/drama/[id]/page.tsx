@@ -11,6 +11,7 @@ import { getMovieById, hasPurchasedContent } from '@/lib/movies';
 const getMovie = cache(getMovieById);
 import { getYoutubeEmbedUrl } from '@/lib/youtube';
 import DramaActionButtons from '@/components/drama/DramaActionButtons';
+import { getTranslations } from 'next-intl/server';
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? '';
 
@@ -31,18 +32,18 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const drama = await getMovie(id);
+  const t = await getTranslations('drama');
 
   if (!drama) {
     return {
-      title: 'Movie not found - ReelTime Media',
-      description: 'This movie is not available.',
+      title: t('metadataNotFoundTitle'),
+      description: t('metadataNotFoundDesc'),
     };
   }
 
   const title = drama.titleKh ? `${drama.title} (${drama.titleKh})` : drama.title;
   const description =
-    drama.description?.trim() ||
-    `Watch ${drama.title} on ReelTime Media.`;
+    drama.description?.trim() || t('metadataDefaultDesc', { title: drama.title });
   const url = absoluteUrl(`/drama/${id}`) ?? `/drama/${id}`;
   const image = absoluteUrl(drama.posterUrl || drama.bannerUrl);
 
@@ -81,6 +82,7 @@ export default async function DramaDetailPage({
 }) {
   const { id } = await params;
   const drama = await getMovie(id);
+  const t = await getTranslations('drama');
 
   if (!drama) {
     notFound();
@@ -120,7 +122,7 @@ export default async function DramaDetailPage({
             <div className="flex flex-wrap items-center gap-2 mb-2">
               {isFreeMovie && (
                 <span className="bg-[#FFB800] text-gray-900 px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wide">
-                  Free
+                  {t('free')}
                 </span>
               )}
               {drama.genres.map((genre) => (
@@ -139,21 +141,26 @@ export default async function DramaDetailPage({
               <p className="text-base md:text-lg text-gray-300 mb-4" lang="km">{drama.titleKh}</p>
             )}
             <div className="flex flex-wrap items-center gap-4 text-sm text-gray-300">
-              <span className="flex items-center gap-1.5">
-                <FaStar className="text-[#FFB800]" /> {drama.rating.toFixed(1)}
-              </span>
+              {drama.rating != null && (
+                <span className="flex items-center gap-1.5">
+                  <FaStar className="text-[#FFB800]" /> {drama.rating.toFixed(1)}
+                </span>
+              )}
               <span className="flex items-center gap-1.5">
                 <FiCalendar className="text-gray-400" /> {drama.releaseYear}
               </span>
               <span className="flex items-center gap-1.5">
-                <FiFilm className="text-gray-400" /> {drama.contentType === 'movie' ? 'Movie' : `${drama.totalEpisodes} Episodes`}
+                <FiFilm className="text-gray-400" />{' '}
+                {drama.contentType === 'movie'
+                  ? t('movie')
+                  : t('episodesCount', { count: drama.totalEpisodes })}
               </span>
               <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${
                 drama.status === 'completed'
                   ? 'bg-green-500/20 text-green-300 border border-green-500/40'
                   : 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
               }`}>
-                {drama.status === 'completed' ? 'Completed' : 'Ongoing'}
+                {drama.status === 'completed' ? t('completed') : t('ongoing')}
               </span>
             </div>
             {/* Action buttons in hero (desktop/tablet only) */}
@@ -215,7 +222,7 @@ export default async function DramaDetailPage({
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-1 h-8 bg-[#E31837] rounded-full" />
                   <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                    <FiPlay className="text-[#E31837]" /> Trailer
+                    <FiPlay className="text-[#E31837]" /> {t('trailer')}
                   </h2>
                 </div>
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -236,7 +243,7 @@ export default async function DramaDetailPage({
             <section>
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-1 h-8 bg-[#E31837] rounded-full" />
-                <h2 className="text-xl font-bold text-gray-900">Overview</h2>
+                <h2 className="text-xl font-bold text-gray-900">{t('overview')}</h2>
               </div>
               <div className="bg-white rounded-xl p-5 md:p-6 border border-gray-200 shadow-sm">
                 <p className="text-gray-600 text-sm md:text-base leading-relaxed">{drama.description}</p>
@@ -249,7 +256,7 @@ export default async function DramaDetailPage({
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-1 h-8 bg-[#E31837] rounded-full" />
                   <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                    <FiFilm className="text-[#E31837]" /> Episodes
+                    <FiFilm className="text-[#E31837]" /> {t('episodes')}
                   </h2>
                 </div>
                 <div className="bg-white rounded-xl p-5 md:p-6 border border-gray-200 shadow-sm">
@@ -273,7 +280,7 @@ export default async function DramaDetailPage({
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-1 h-8 bg-[#E31837] rounded-full" />
                 <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <FiUsers className="text-[#E31837]" /> Cast
+                  <FiUsers className="text-[#E31837]" /> {t('cast')}
                 </h2>
               </div>
               <div className="bg-white rounded-xl p-5 md:p-6 border border-gray-200 shadow-sm">
@@ -302,7 +309,7 @@ export default async function DramaDetailPage({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-500 text-sm">No cast information available.</p>
+                  <p className="text-gray-500 text-sm">{t('noCastInfo')}</p>
                 )}
               </div>
             </section>

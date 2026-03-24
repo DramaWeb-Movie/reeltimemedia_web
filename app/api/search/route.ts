@@ -8,6 +8,18 @@ const CARD_COLUMNS =
 
 const PLACEHOLDER_IMAGE = 'https://placehold.co/400x600/1a1a1a/808080?text=No+Image';
 
+function normalizeSearchQuery(input: string): string {
+  return input
+    .normalize('NFKC')
+    .replace(/[%_*()[\]{}<>"'`;$\\]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function escapeForILike(value: string): string {
+  return value.replace(/[%_]/g, (m) => `\\${m}`);
+}
+
 export async function GET(request: NextRequest) {
   const rate = await checkRateLimit(request, {
     namespace: 'api:search',
@@ -25,7 +37,8 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = request.nextUrl;
-  const q = searchParams.get('q')?.trim();
+  const qRaw = searchParams.get('q')?.trim() ?? '';
+  const q = normalizeSearchQuery(qRaw);
   const limit = Math.min(Number(searchParams.get('limit') ?? 20), 50);
 
   if (!q || q.length < 2) {
@@ -34,13 +47,27 @@ export async function GET(request: NextRequest) {
 
   const supabase = createAnonClient();
 
-  const { data, error } = await supabase
-    .from('movies')
-    .select(CARD_COLUMNS)
-    .eq('status', 'published')
-    .or(`title.ilike.%${q}%,title_kh.ilike.%${q}%,description.ilike.%${q}%,genre.ilike.%${q}%`)
-    .order('created_at', { ascending: false })
-    .limit(limit);
+  // Prefer PostgreSQL full-text search if the DB has an FTS expression/index.
+  // Fallback to escaped ILIKE for compatibility with current schema.
+  const { data, error } = await (async () => {
+    const fts = await supabase
+      .from('movies')
+      .select(CARD_COLUMNS)
+      .eq('status', 'published')
+      .textSearch('search_vector', q, { type: 'websearch', config: 'simple' })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (!fts.error) return fts;
+
+    const likeQ = escapeForILike(q);
+    return supabase
+      .from('movies')
+      .select(CARD_COLUMNS)
+      .eq('status', 'published')
+      .or(`title.ilike.%${likeQ}%,title_kh.ilike.%${likeQ}%,description.ilike.%${likeQ}%,genre.ilike.%${likeQ}%`)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+  })();
 
   if (error) {
     console.error('Search error:', error);

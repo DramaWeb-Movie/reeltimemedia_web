@@ -32,11 +32,13 @@ export default function DramaCard({ drama, index }: DramaCardProps) {
             </div>
           )}
 
-          {/* Rating Badge */}
-          <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-lg text-sm font-bold flex items-center gap-1 shadow-sm">
-            <FaStar className="text-[#FFB800]" />
-            <span className="text-gray-900">{drama.rating.toFixed(1)}</span>
-          </div>
+          {/* Rating Badge — only when DB provides a numeric score */}
+          {drama.rating != null && (
+            <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-lg text-sm font-bold flex items-center gap-1 shadow-sm">
+              <FaStar className="text-[#FFB800]" />
+              <span className="text-gray-900">{drama.rating.toFixed(1)}</span>
+            </div>
+          )}
 
           {/* Play Button on Hover */}
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">

@@ -50,13 +50,14 @@ export default function DramaCardCompact({ id, title, titleKh, episodes, image, 
             {/* Free badge (movies only) */}
             {isFreeMovie && (
               <div className="absolute top-3 right-3 bg-[#FFB800] text-gray-900 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide shadow-sm">
-                Free
+                {tMovies('free')}
               </div>
             )}
 
             {/* Episode Badge */}
             <div className="absolute bottom-3 left-3 bg-black/60 backdrop-blur-sm text-white px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1.5">
-              <FiPlay className="text-[10px]" /> {episodes === 1 ? 'Movie' : `${episodes} Eps`}
+              <FiPlay className="text-[10px]" />{' '}
+              {episodes === 1 ? tMovies('singleMovie') : tMovies('episodesShort', { count: episodes })}
             </div>
 
             {/* Play Button on Hover */}

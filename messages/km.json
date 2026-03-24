@@ -111,7 +111,10 @@
     "subtitle": "ភាពយន្តតែមួយផ្នែក។ បង់ប្រាក់ម្ដងដើម្បីទទួលបាន។",
     "notFound": "រកមិនឃើញភាពយន្ត។",
     "payPerMovie": "បង់តាមភាពយន្ត",
-    "priceFormat": "${value}"
+    "priceFormat": "${value}",
+    "free": "ឥតគិតថ្លៃ",
+    "singleMovie": "ភាពយន្ត",
+    "episodesShort": "វគ្គ {count}"
   },
   "series": {
     "title": "ភាពយន្តសេរី",
@@ -141,7 +144,10 @@
     "fallbackName": "ជាវវគ្គ",
     "fallbackDesc": "ចូលប្រើប្រាស់វគ្គទាំងអស់ប្រចាំខែ។ មើលបានគ្មានដែនកំណត់ បោះបង់បានគ្រប់ពេល។",
     "fallbackBilled": "ការបង់ប្រចាំខែ។ គ្មានការចងចិត្ត។",
-    "monthly": "ខែ"
+    "monthly": "ខែ",
+    "noPlans": "មិនទាន់មានគម្រោងជាវនៅពេលនេះទេ។",
+    "noPlansHint": "គម្រោងត្រូវបានគ្រប់គ្រងក្នុងមូលដ្ឋានទិន្នន័យ។ អ្នកនៅតែអាចមើលស៊េរី និងភាពយន្តបាន។",
+    "browseSeries": "មើលភាពយន្តសេរី"
   },
   "profile": {
     "loading": "កំពុងផ្ទុក...",
@@ -170,7 +176,8 @@
     "expiresOn": "ផុតកំណត់នៅ {date}",
     "noActiveSubscription": "គ្មានការជាវសកម្ម",
     "noActiveSubscriptionDesc": "ជាវដើម្បីដោះសោស៊េរីទាំងអស់ និងមើលដោយគ្មានដែនកំណត់។",
-    "viewPlans": "មើលផែនការ"
+    "viewPlans": "មើលផែនការ",
+    "closeModal": "បិទ"
   },
   "watch": {
     "signInToWatch": "ចូលដើម្បីមើលដោយឥតគិតថ្លៃ",
@@ -190,7 +197,46 @@
     "noVideoSupport": "កម្មវិធីរុករករបស់អ្នកមិនគាំទ្រ video ទេ។",
     "videoNotAvailable": "វីដេអូមិនអាចប្រើបាន",
     "episode": "វគ្គ",
-    "watchNow": "មើលឥឡូវ"
+    "watchNow": "មើលឥឡូវ",
+    "backToDrama": "ត្រឡប់ទៅរឿង",
+    "ariaBackToDrama": "ត្រឡប់ទៅទំព័រព័ត៌មានរឿង",
+    "movieLabel": "ភាពយន្ត",
+    "episodeBadge": "វ. {num}",
+    "nowPlaying": "កំពុងចាក់",
+    "minutesShort": "{n} នាទី",
+    "previousEpisode": "មុន",
+    "nextEpisode": "វគ្គបន្ទាប់",
+    "aboutMovie": "អំពីភាពយន្តនេះ",
+    "aboutSeries": "អំពីស៊េរីនេះ",
+    "noDescription": "មិនទាន់មានសេចក្តីពិពណ៌នាសម្រាប់ចំណងជើងនេះទេ។",
+    "watchingOn": "កំពុងមើលនៅ ReelTime Media",
+    "viewFullDetails": "មើលព័ត៌មានលម្អិត",
+    "episodesListTitle": "វគ្គ",
+    "episodeTotalOne": "វគ្គ {count}",
+    "episodeTotalOther": "វគ្គ {count}",
+    "episodeNumbered": "វគ្គ {num}",
+    "youMayAlsoLike": "អ្នកប្រហែលចូលចិត្ត",
+    "handpickedForYou": "ជ្រើសរើសតាមអ្វីដែលអ្នកកំពុងមើល",
+    "sessionFailed": "មិនអាចចាប់ផ្តើមចាក់បានទេ។ សម័យរបស់អ្នកអាចផុតកំណត់ហើយ។",
+    "resumePlayback": "បន្តចាក់"
+  },
+  "drama": {
+    "free": "ឥតគិតថ្លៃ",
+    "movie": "ភាពយន្ត",
+    "episodesCount": "វគ្គ {count}",
+    "completed": "បញ្ចប់",
+    "ongoing": "កំពុងចាក់",
+    "trailer": "ត្រេលៀរ",
+    "overview": "សង្ខេប",
+    "episodes": "វគ្គ",
+    "cast": "តួសម្តែង",
+    "noCastInfo": "មិនទាន់មានព័ត៌មានតួសម្តែង។",
+    "watch": "មើល",
+    "buyFor": "ទិញ {price}",
+    "subscribePerMonth": "ជាវ {price}/ខែ",
+    "metadataNotFoundTitle": "រកមិនឃើញខ្លឹមសារ - ReelTime Media",
+    "metadataNotFoundDesc": "ចំណងជើងនេះមិនអាចប្រើបានទេ។",
+    "metadataDefaultDesc": "មើល {title} នៅ ReelTime Media។"
   },
   "payment": {
     "confirming": "កំពុងបញ្ជាក់ការទូទាត់...",
@@ -215,7 +261,45 @@
     "tryAgain": "ព្យាយាមម្តងទៀត",
     "needHelp": "ត្រូវការជំនួយ?",
     "contactSupport": "ទំនាក់ទំនងជំនួយ",
-    "orderId": "លេខបញ្ជា:"
+    "orderId": "លេខបញ្ជា:",
+    "checkout": {
+      "back": "ត្រឡប់ក្រោយ",
+      "title": "បញ្ចប់ការទិញរបស់អ្នក",
+      "subtitle": "ទូទាត់ប្រកបដោយសុវត្ថិភាពតាមធនាគារកម្ពុជា (ABA អេស៊ីលដា ស្ថាបនា វីង)",
+      "orderSummary": "សង្ខេបការបញ្ជា",
+      "monthlySubscription": "ការជាវប្រចាំខែ",
+      "oneTimePurchase": "ទិញម្តង",
+      "paymentMethods": "វិធីទូទាត់",
+      "redirectHint": "អ្នកនឹងត្រូវបានបញ្ជូនបន្តទៅទំព័រទូទាត់សុវត្ថិភាព ដើម្បីជ្រើសរើស៖",
+      "supportsNote": "គាំទ្រ KHQR រុករកធនាគារទូរស័ព្ទ និងកាត (តាម ABA)",
+      "paymentError": "កំហុសការទូទាត់",
+      "redirecting": "កំពុងបញ្ជូនបន្តទៅទូទាត់...",
+      "pay": "ទូទាត់ {amount}",
+      "signInTitle": "ចូលគណនីដើម្បីបន្ត",
+      "signInDesc": "អ្នកត្រូវមានគណនីដើម្បីទិញ និងរក្សាការចូលប្រើប្រាស់ខ្លឹមសារនេះ។",
+      "signInToPay": "ចូលដើម្បីទូទាត់",
+      "createAccount": "បង្កើតគណនី",
+      "secureNote": "ការទូទាត់សុវត្ថិភាពដោយធនាគារកម្ពុជាដែលមានអាជ្ញាប័ណ្ណ",
+      "howItWorks": "របៀបដំណើរការ",
+      "step1": "ចុច ទូទាត់ ដើម្បីទៅទំព័រទូទាត់សុវត្ថិភាព",
+      "step2": "ជ្រើសរើសធនាគារ ឬវិធីទូទាត់ដែលអ្នកចង់បាន",
+      "step3": "ស្កែនកូដ QR ឬបញ្ចប់ការទូទាត់ក្នុងកម្មវិធីធនាគាររបស់អ្នក",
+      "step4": "ទទួលបានការចូលប្រើប្រាស់ខ្លឹមសារភ្លាមៗ",
+      "defaultMovie": "ទិញភាពយន្ត",
+      "defaultSubscription": "ជាវសេរី",
+      "needSignIn": "សូមចូលគណនីមុនពេលទូទាត់។",
+      "genericFailure": "ការទូទាត់បរាជ័យ។ សូមព្យាយាមម្តងទៀត។",
+      "failedToCreate": "មិនអាចបង្កើតការទូទាត់បានទេ",
+      "noPaymentUrl": "មិនបានទទួលតំណទូទាត់",
+      "bankAba": "ធនាគារ ABA",
+      "bankAcleda": "អេស៊ីលដា",
+      "bankSathapana": "ស្ថាបនា",
+      "bankWing": "វីង",
+      "bankAbaAlt": "ឡូហ្គូធនាគារ ABA",
+      "bankAcledaAlt": "ឡូហ្គូធនាគារអេស៊ីលដា",
+      "bankSathapanaAlt": "ឡូហ្គូធនាគារស្ថាបនា",
+      "bankWingAlt": "ឡូហ្គូវីង"
+    }
   },
   "footer": {
     "tagline": "គោលដៅអ្នកមើលកំពូលសម្រាប់ភាពយន្ត និងរឿងស្នេហ៍។ ស្ទ្រីមមើលភាពយន្តថ្មីបំផុត និងសុទ្ធខ្លាំងបំផុតក្នុងគុណភាពល្អ ។",
@@ -244,5 +328,9 @@
     "desc": "ទំព័រដែលអ្នករករកមិនឃើញ ឬត្រូវបានផ្លាស់ប្ដូរ។",
     "backToHome": "ត្រឡប់ទំព័រដើម",
     "browse": "ស្វែងរក"
+  },
+  "common": {
+    "previousPage": "ទំព័រមុន",
+    "nextPage": "ទំព័របន្ទាប់"
   }
 }

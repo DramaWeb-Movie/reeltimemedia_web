@@ -218,7 +218,7 @@ export default function ProfilePage() {
               <button
                 onClick={openEditModal}
                 className="absolute -bottom-2 -right-2 w-8 h-8 bg-white border border-gray-200 rounded-lg flex items-center justify-center text-gray-600 hover:bg-gray-50 transition-colors shadow-sm"
-                aria-label="Edit profile"
+                aria-label={t('editProfileLabel')}
               >
                 <FiEdit2 className="text-sm" />
               </button>
@@ -361,7 +361,7 @@ export default function ProfilePage() {
               <button
                 onClick={() => setIsEditOpen(false)}
                 className="p-2 text-gray-400 hover:text-gray-700 transition-colors"
-                aria-label="Close"
+                aria-label={t('closeModal')}
               >
                 <FiX className="text-xl" />
               </button>

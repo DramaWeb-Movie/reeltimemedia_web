@@ -1,4 +1,7 @@
+'use client';
+
 import { FiChevronLeft, FiChevronRight } from 'react-icons/fi';
+import { useTranslations } from 'next-intl';
 
 interface PaginationProps {
   currentPage: number;
@@ -7,6 +10,8 @@ interface PaginationProps {
 }
 
 export default function Pagination({ currentPage, totalPages, onPageChange }: PaginationProps) {
+  const t = useTranslations('common');
+
   const getPageNumbers = () => {
     const pages: (number | string)[] = [];
     const maxVisible = 5;
@@ -51,7 +56,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
             ? 'bg-gray-100 text-gray-300 cursor-not-allowed border border-gray-200'
             : 'bg-white text-gray-700 hover:bg-[#E31837] hover:text-white border border-gray-200 shadow-sm'
         }`}
-        aria-label="Previous page"
+        aria-label={t('previousPage')}
       >
         <FiChevronLeft className="text-xl" />
       </button>
@@ -91,7 +96,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
             ? 'bg-gray-100 text-gray-300 cursor-not-allowed border border-gray-200'
             : 'bg-white text-gray-700 hover:bg-[#E31837] hover:text-white border border-gray-200 shadow-sm'
         }`}
-        aria-label="Next page"
+        aria-label={t('nextPage')}
       >
         <FiChevronRight className="text-xl" />
       </button>

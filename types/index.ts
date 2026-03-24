@@ -12,7 +12,8 @@ export interface Drama {
   posterUrl: string;
   bannerUrl?: string;
   releaseYear: number;
-  rating: number;
+  /** Average / score when available from data (e.g. numeric content_rating) */
+  rating?: number;
   genres: string[];
   episodes: Episode[];
   cast: CastMember[];

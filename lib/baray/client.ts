@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { fetchWithBudget } from '@/lib/utils/fetchWithBudget';
 import {
   BarayCredentials,
   BarayPaymentPayload,
@@ -117,14 +118,22 @@ export async function createPaymentIntent(
     );
 
     // Send request to Baray
-    const response = await fetch(`${BARAY_API_URL}/pay`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': credentials.apiKey,
+    const response = await fetchWithBudget(
+      `${BARAY_API_URL}/pay`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': credentials.apiKey,
+        },
+        body: JSON.stringify({ data: encryptedData }),
       },
-      body: JSON.stringify({ data: encryptedData }),
-    });
+      {
+        timeoutMs: 8000,
+        retries: 2,
+        retryDelayMs: 250,
+      }
+    );
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));

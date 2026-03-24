@@ -53,13 +53,21 @@ export interface MovieCard {
 
 /** Featured item for home hero carousel */
 export interface FeaturedMovie extends MovieCard {
-  rating: number;
   description: string;
   genres: string[];
   year: string;
 }
 
 const PLACEHOLDER_IMAGE = 'https://placehold.co/400x600/1a1a1a/808080?text=No+Image';
+
+/** Use DB content_rating only when it is a numeric score (not e.g. PG-13). */
+export function parseNumericRating(contentRating: string | null | undefined): number | undefined {
+  if (!contentRating?.trim()) return undefined;
+  const n = parseFloat(contentRating.trim());
+  if (!Number.isFinite(n)) return undefined;
+  if (n < 0 || n > 10) return undefined;
+  return n;
+}
 
 /** Row shape returned by the series_episodes table */
 interface SeriesEpisodeRow {
@@ -74,7 +82,7 @@ interface SeriesEpisodeRow {
 const CARD_COLUMNS =
   'id, title, title_kh, description, genre, release_date, thumbnail_url, type, price, free_episodes_count, total_episodes';
 
-// Columns needed for the full detail / watch page
+// Columns needed for the full detail / watch page (omit DB columns that may not exist in every project, e.g. content_rating)
 const DETAIL_COLUMNS =
   'id, title, title_kh, description, genre, release_date, duration, thumbnail_url, video_url, status, type, price, free_episodes_count, subscription_plan_id, total_episodes, cast, trailer_url';
 
@@ -92,6 +100,7 @@ function rowToCard(row: MovieRow): MovieCard {
   const genres = row.genre
     ? row.genre.split(',').map((g) => g.trim()).filter(Boolean)
     : undefined;
+  const rating = parseNumericRating(row.content_rating);
   return {
     id: row.id,
     title: row.title,
@@ -102,6 +111,7 @@ function rowToCard(row: MovieRow): MovieCard {
     description: row.description ?? undefined,
     genres,
     year,
+    ...(rating != null && { rating }),
     ...(contentType === 'movie' && row.price != null && { price: Number(row.price) }),
     freeEpisodesCount: row.free_episodes_count != null ? Number(row.free_episodes_count) : undefined,
   };
@@ -111,7 +121,6 @@ function rowToFeatured(row: MovieRow): FeaturedMovie {
   const card = rowToCard(row);
   return {
     ...card,
-    rating: 8.0,
     description: row.description ?? '',
     genres: row.genre
       ? row.genre.split(',').map((g) => g.trim()).filter(Boolean)
@@ -183,7 +192,8 @@ export async function getMoviesPage(options: {
       const supabase = createAnonClient();
       let query = supabase
         .from('movies')
-        .select(CARD_COLUMNS, { count: 'exact' })
+        // `planned` count is much cheaper than exact on large datasets.
+        .select(CARD_COLUMNS, { count: 'planned' })
         .order('created_at', { ascending: false })
         .eq('status', status);
       if (type !== 'all') {
@@ -259,6 +269,9 @@ export async function getMovieById(id: string): Promise<Drama | null> {
         : undefined;
 
     const seriesEpisodes = (seriesEpisodesResult.data as SeriesEpisodeRow[] | null) ?? [];
+    const seriesEpisodeByNumber = new Map<number, SeriesEpisodeRow>(
+      seriesEpisodes.map((episode) => [episode.episode_number, episode])
+    );
 
     const baseEpisode = {
       dramaId: r.id,
@@ -276,7 +289,7 @@ export async function getMovieById(id: string): Promise<Drama | null> {
     } else {
       episodes = Array.from({ length: totalEpisodes }, (_, i) => {
         const epNum = i + 1;
-        const dbEp = seriesEpisodes.find((e) => e.episode_number === epNum);
+        const dbEp = seriesEpisodeByNumber.get(epNum);
         return {
           id: dbEp?.id ?? `${r.id}-${epNum}`,
           dramaId: r.id,
@@ -290,6 +303,7 @@ export async function getMovieById(id: string): Promise<Drama | null> {
       });
     }
 
+    const rating = parseNumericRating(r.content_rating);
     const drama: Drama = {
       id: r.id,
       title: r.title,
@@ -300,7 +314,7 @@ export async function getMovieById(id: string): Promise<Drama | null> {
       releaseYear: r.release_date
         ? new Date(r.release_date).getFullYear()
         : new Date().getFullYear(),
-      rating: 8.0,
+      ...(rating != null && { rating }),
       genres: r.genre ? r.genre.split(',').map((g) => g.trim()).filter(Boolean) : [],
       episodes,
       cast: parseCast(r.cast),

@@ -3,21 +3,33 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Suspense } from 'react';
 import { FiArrowLeft, FiCreditCard, FiFilm, FiAlertCircle, FiShield, FiCheck } from 'react-icons/fi';
 import Button from '@/components/ui/Button';
 import { createClient } from '@/lib/supabase/client';
+import { useTranslations } from 'next-intl';
 
 /** Approximate USD → KHR conversion rate used for display purposes only */
 const KHR_RATE = 4100;
 
+const PAYMENT_METHOD_LOGOS = [
+  { src: '/bank_logo/aba.png', labelKey: 'checkout.bankAba', altKey: 'checkout.bankAbaAlt' },
+  { src: '/bank_logo/acelida.png', labelKey: 'checkout.bankAcleda', altKey: 'checkout.bankAcledaAlt' },
+  { src: '/bank_logo/sathapana.png', labelKey: 'checkout.bankSathapana', altKey: 'checkout.bankSathapanaAlt' },
+  { src: '/bank_logo/wing.png', labelKey: 'checkout.bankWing', altKey: 'checkout.bankWingAlt' },
+] as const;
+
 function PaymentContent() {
+  const t = useTranslations('payment');
   const searchParams = useSearchParams();
   const type = searchParams.get('type') || 'movie';
   const id = searchParams.get('id') || '';
   const rawAmount = Number(searchParams.get('amount'));
   const amount = rawAmount > 0 ? rawAmount : 0;
-  const title = searchParams.get('title') || (type === 'subscription' ? 'Series subscription' : 'Movie purchase');
+  const title =
+    searchParams.get('title') ||
+    (type === 'subscription' ? t('checkout.defaultSubscription') : t('checkout.defaultMovie'));
   const currency = (searchParams.get('currency') || 'USD').toUpperCase();
 
   const [loading, setLoading] = useState(false);
@@ -45,7 +57,7 @@ function PaymentContent() {
 
   const handlePayment = async () => {
     if (!isAuthenticated) {
-      setError('You need to sign in before making a payment.');
+      setError(t('checkout.needSignIn'));
       return;
     }
     try {
@@ -68,49 +80,49 @@ function PaymentContent() {
       const result = await response.json();
 
       if (!result.success) {
-        throw new Error(result.error?.message || 'Failed to create payment');
+        throw new Error(result.error?.message || t('checkout.failedToCreate'));
       }
 
       // Redirect to Baray payment page
       if (result.data?.payment_url) {
         window.location.href = result.data.payment_url;
       } else {
-        throw new Error('No payment URL received');
+        throw new Error(t('checkout.noPaymentUrl'));
       }
     } catch (err: unknown) {
       console.error('Payment error:', err);
-      setError(err instanceof Error ? err.message : 'Payment failed. Please try again.');
+      setError(err instanceof Error ? err.message : t('checkout.genericFailure'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0F0F0F] pt-24">
+    <div className="min-h-screen bg-gray-50 pt-24">
       <div className="container mx-auto px-4 md:px-8 py-8 max-w-2xl">
         <Link
           href={id ? `/drama/${id}` : '/movies'}
-          className="inline-flex items-center gap-2 text-[#B3B3B3] hover:text-[#E31837] transition-colors text-sm font-medium mb-8"
+          className="inline-flex items-center gap-2 text-gray-500 hover:text-[#E31837] transition-colors text-sm font-medium mb-8"
         >
-          <FiArrowLeft className="text-lg" /> Back
+          <FiArrowLeft className="text-lg" /> {t('checkout.back')}
         </Link>
 
-        <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Complete Your Purchase</h1>
-        <p className="text-[#808080] text-sm mb-8">
-          Secure payment via Cambodian banks (ABA, ACLEDA, Sathapana, Wing)
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">{t('checkout.title')}</h1>
+        <p className="text-gray-500 text-sm mb-8">
+          {t('checkout.subtitle')}
         </p>
 
         <div className="space-y-6">
           {/* Order Summary */}
-          <div className="bg-[#1A1A1A] rounded-2xl border border-[#333333]/50 p-6">
-            <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <FiFilm className="text-[#E31837]" /> Order Summary
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <FiFilm className="text-[#E31837]" /> {t('checkout.orderSummary')}
             </h2>
             <div className="flex justify-between items-start gap-4">
               <div>
-                <p className="text-white font-medium">{title}</p>
-                <p className="text-[#808080] text-sm mt-0.5">
-                  {isSubscription ? 'Monthly subscription' : 'One-time purchase'}
+                <p className="text-gray-900 font-medium">{title}</p>
+                <p className="text-gray-500 text-sm mt-0.5">
+                  {isSubscription ? t('checkout.monthlySubscription') : t('checkout.oneTimePurchase')}
                 </p>
               </div>
               <div className="text-right shrink-0">
@@ -122,51 +134,44 @@ function PaymentContent() {
           </div>
 
           {/* Payment Methods Info */}
-          <div className="bg-[#1A1A1A] rounded-2xl border border-[#333333]/50 p-6">
-            <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-              <FiCreditCard className="text-[#E31837]" /> Payment Methods
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <FiCreditCard className="text-[#E31837]" /> {t('checkout.paymentMethods')}
             </h2>
-            <p className="text-[#B3B3B3] text-sm mb-4">
-              You'll be redirected to our secure payment page where you can choose from:
+            <p className="text-gray-600 text-sm mb-4">
+              {t('checkout.redirectHint')}
             </p>
             <div className="grid grid-cols-2 gap-3 mb-4">
-              <div className="bg-[#0F0F0F] rounded-lg p-3 flex items-center gap-2">
-                <div className="w-8 h-8 bg-[#1e3a8a] rounded flex items-center justify-center text-white text-xs font-bold">
-                  ABA
+              {PAYMENT_METHOD_LOGOS.map(({ src, labelKey, altKey }) => (
+                <div
+                  key={src}
+                  className="bg-gray-50 rounded-lg border border-gray-100 p-3 flex items-center gap-3 min-h-[52px]"
+                >
+                  <div className="relative h-9 w-9 shrink-0 bg-white rounded-md border border-gray-100 overflow-hidden">
+                    <Image
+                      src={src}
+                      alt={t(altKey)}
+                      fill
+                      className="object-contain p-0.5"
+                      sizes="36px"
+                    />
+                  </div>
+                  <span className="text-gray-700 text-sm font-medium">{t(labelKey)}</span>
                 </div>
-                <span className="text-[#B3B3B3] text-sm">ABA Bank</span>
-              </div>
-              <div className="bg-[#0F0F0F] rounded-lg p-3 flex items-center gap-2">
-                <div className="w-8 h-8 bg-[#00843D] rounded flex items-center justify-center text-white text-xs font-bold">
-                  ACL
-                </div>
-                <span className="text-[#B3B3B3] text-sm">ACLEDA</span>
-              </div>
-              <div className="bg-[#0F0F0F] rounded-lg p-3 flex items-center gap-2">
-                <div className="w-8 h-8 bg-[#e11d48] rounded flex items-center justify-center text-white text-xs font-bold">
-                  SPN
-                </div>
-                <span className="text-[#B3B3B3] text-sm">Sathapana</span>
-              </div>
-              <div className="bg-[#0F0F0F] rounded-lg p-3 flex items-center gap-2">
-                <div className="w-8 h-8 bg-[#f97316] rounded flex items-center justify-center text-white text-xs font-bold">
-                  W
-                </div>
-                <span className="text-[#B3B3B3] text-sm">Wing</span>
-              </div>
+              ))}
             </div>
-            <p className="text-[#666666] text-xs">
-              Supports KHQR, Mobile Banking Deeplinks, and Card payments (via ABA)
+            <p className="text-gray-400 text-xs">
+              {t('checkout.supportsNote')}
             </p>
           </div>
 
           {/* Error State */}
           {error && (
-            <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 flex items-start gap-3">
-              <FiAlertCircle className="text-red-500 text-xl shrink-0 mt-0.5" />
+            <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+              <FiAlertCircle className="text-red-600 text-xl shrink-0 mt-0.5" />
               <div>
-                <h3 className="text-white font-semibold mb-1">Payment Error</h3>
-                <p className="text-[#B3B3B3] text-sm">{error}</p>
+                <h3 className="text-gray-900 font-semibold mb-1">{t('checkout.paymentError')}</h3>
+                <p className="text-gray-600 text-sm">{error}</p>
               </div>
             </div>
           )}
@@ -185,32 +190,34 @@ function PaymentContent() {
               {loading ? (
                 <>
                   <span className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
-                  Redirecting to payment...
+                  {t('checkout.redirecting')}
                 </>
               ) : (
                 <>
                   <FiCreditCard className="text-xl" />
-                  Pay {currency === 'KHR' ? `${displayAmount} KHR` : `$${displayAmount}`}
+                  {t('checkout.pay', {
+                    amount: currency === 'KHR' ? `${displayAmount} KHR` : `$${displayAmount}`,
+                  })}
                 </>
               )}
             </Button>
           ) : (
             <div className="space-y-3">
-              <div className="bg-[#1A1A1A] border border-[#333333]/60 rounded-xl p-4 text-center">
-                <p className="text-white font-semibold mb-1">Sign in to continue</p>
-                <p className="text-[#B3B3B3] text-sm">
-                  You need an account to purchase and keep access to this content.
+              <div className="bg-white border border-gray-200 rounded-xl p-4 text-center shadow-sm">
+                <p className="text-gray-900 font-semibold mb-1">{t('checkout.signInTitle')}</p>
+                <p className="text-gray-600 text-sm">
+                  {t('checkout.signInDesc')}
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
                 <Link href={`/login?redirect=/payment?type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}&amount=${encodeURIComponent(String(amount))}&title=${encodeURIComponent(title)}&currency=${encodeURIComponent(currency)}`}>
                   <Button className="w-full sm:w-auto flex items-center justify-center gap-2">
-                    Sign in to pay
+                    {t('checkout.signInToPay')}
                   </Button>
                 </Link>
                 <Link href={`/register?redirect=/payment?type=${encodeURIComponent(type)}&id=${encodeURIComponent(id)}&amount=${encodeURIComponent(String(amount))}&title=${encodeURIComponent(title)}&currency=${encodeURIComponent(currency)}`}>
                   <Button variant="outline" className="w-full sm:w-auto flex items-center justify-center gap-2">
-                    Create account
+                    {t('checkout.createAccount')}
                   </Button>
                 </Link>
               </div>
@@ -218,38 +225,38 @@ function PaymentContent() {
           )}
 
           {/* Security Note */}
-          <div className="flex items-center justify-center gap-2 text-[#666666] text-xs">
-            <FiShield className="text-green-500" />
-            <span>Secure payment processed by licensed Cambodian banks</span>
+          <div className="flex items-center justify-center gap-2 text-gray-400 text-xs">
+            <FiShield className="text-green-600" />
+            <span>{t('checkout.secureNote')}</span>
           </div>
 
           {/* How It Works */}
-          <div className="bg-[#1A1A1A] rounded-2xl border border-[#333333]/50 p-6">
-            <h2 className="text-lg font-bold text-white mb-4">How It Works</h2>
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">{t('checkout.howItWorks')}</h2>
             <ul className="space-y-3">
-              <li className="flex items-start gap-3 text-[#B3B3B3] text-sm">
-                <div className="w-6 h-6 rounded-full bg-[#E31837]/20 flex items-center justify-center shrink-0">
+              <li className="flex items-start gap-3 text-gray-600 text-sm">
+                <div className="w-6 h-6 rounded-full bg-[#E31837]/10 flex items-center justify-center shrink-0">
                   <span className="text-[#E31837] text-xs font-bold">1</span>
                 </div>
-                Click "Pay" to go to the secure payment page
+                {t('checkout.step1')}
               </li>
-              <li className="flex items-start gap-3 text-[#B3B3B3] text-sm">
-                <div className="w-6 h-6 rounded-full bg-[#E31837]/20 flex items-center justify-center shrink-0">
+              <li className="flex items-start gap-3 text-gray-600 text-sm">
+                <div className="w-6 h-6 rounded-full bg-[#E31837]/10 flex items-center justify-center shrink-0">
                   <span className="text-[#E31837] text-xs font-bold">2</span>
                 </div>
-                Select your preferred bank or payment method
+                {t('checkout.step2')}
               </li>
-              <li className="flex items-start gap-3 text-[#B3B3B3] text-sm">
-                <div className="w-6 h-6 rounded-full bg-[#E31837]/20 flex items-center justify-center shrink-0">
+              <li className="flex items-start gap-3 text-gray-600 text-sm">
+                <div className="w-6 h-6 rounded-full bg-[#E31837]/10 flex items-center justify-center shrink-0">
                   <span className="text-[#E31837] text-xs font-bold">3</span>
                 </div>
-                Scan QR code or complete payment in your banking app
+                {t('checkout.step3')}
               </li>
-              <li className="flex items-start gap-3 text-[#B3B3B3] text-sm">
-                <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
-                  <FiCheck className="text-green-500 text-xs" />
+              <li className="flex items-start gap-3 text-gray-600 text-sm">
+                <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                  <FiCheck className="text-green-600 text-xs" />
                 </div>
-                Get instant access to your content
+                {t('checkout.step4')}
               </li>
             </ul>
           </div>
@@ -262,7 +269,7 @@ function PaymentContent() {
 export default function PaymentPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#0F0F0F] pt-24 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 pt-24 flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-2 border-[#E31837] border-t-transparent rounded-full" />
       </div>
     }>

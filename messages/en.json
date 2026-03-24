@@ -111,7 +111,10 @@
     "subtitle": "Single-part movies. Pay per title to buy or rent.",
     "notFound": "No movies found.",
     "payPerMovie": "Pay per movie",
-    "priceFormat": "${value}"
+    "priceFormat": "${value}",
+    "free": "Free",
+    "singleMovie": "Movie",
+    "episodesShort": "{count} Eps"
   },
   "series": {
     "title": "Series",
@@ -141,7 +144,10 @@
     "fallbackName": "Series subscription",
     "fallbackDesc": "Monthly access to all series. Binge every episode, cancel anytime.",
     "fallbackBilled": "Billed monthly. No commitment.",
-    "monthly": "month"
+    "monthly": "month",
+    "noPlans": "No subscription plans are available right now.",
+    "noPlansHint": "Plans are managed in your database. You can still explore series and movies.",
+    "browseSeries": "Browse series"
   },
   "profile": {
     "loading": "Loading profile...",
@@ -170,7 +176,8 @@
     "expiresOn": "Expires on {date}",
     "noActiveSubscription": "No active subscription",
     "noActiveSubscriptionDesc": "Subscribe to unlock all series and watch without limits.",
-    "viewPlans": "View plans"
+    "viewPlans": "View plans",
+    "closeModal": "Close"
   },
   "watch": {
     "signInToWatch": "Sign in to watch for free",
@@ -190,7 +197,46 @@
     "noVideoSupport": "Your browser does not support the video tag.",
     "videoNotAvailable": "Video not available",
     "episode": "Episode",
-    "watchNow": "Watch Now"
+    "watchNow": "Watch Now",
+    "backToDrama": "Back to drama",
+    "ariaBackToDrama": "Back to drama details",
+    "movieLabel": "Movie",
+    "episodeBadge": "Ep. {num}",
+    "nowPlaying": "Now playing",
+    "minutesShort": "{n} min",
+    "previousEpisode": "Previous",
+    "nextEpisode": "Next episode",
+    "aboutMovie": "About this movie",
+    "aboutSeries": "About this series",
+    "noDescription": "No description available for this title yet.",
+    "watchingOn": "Watching on ReelTime Media",
+    "viewFullDetails": "View full details",
+    "episodesListTitle": "Episodes",
+    "episodeTotalOne": "{count} episode",
+    "episodeTotalOther": "{count} episodes",
+    "episodeNumbered": "Episode {num}",
+    "youMayAlsoLike": "You may also like",
+    "handpickedForYou": "Handpicked based on what you're watching",
+    "sessionFailed": "We could not start playback. Your session may have expired.",
+    "resumePlayback": "Resume"
+  },
+  "drama": {
+    "free": "Free",
+    "movie": "Movie",
+    "episodesCount": "{count} Episodes",
+    "completed": "Completed",
+    "ongoing": "Ongoing",
+    "trailer": "Trailer",
+    "overview": "Overview",
+    "episodes": "Episodes",
+    "cast": "Cast",
+    "noCastInfo": "No cast information available.",
+    "watch": "Watch",
+    "buyFor": "Buy {price}",
+    "subscribePerMonth": "Subscribe {price}/mo",
+    "metadataNotFoundTitle": "Content not found - ReelTime Media",
+    "metadataNotFoundDesc": "This title is not available.",
+    "metadataDefaultDesc": "Watch {title} on ReelTime Media."
   },
   "payment": {
     "confirming": "Confirming Payment...",
@@ -215,7 +261,45 @@
     "tryAgain": "Try Again",
     "needHelp": "Need help?",
     "contactSupport": "Contact support",
-    "orderId": "Order ID:"
+    "orderId": "Order ID:",
+    "checkout": {
+      "back": "Back",
+      "title": "Complete Your Purchase",
+      "subtitle": "Secure payment via Cambodian banks (ABA, ACLEDA, Sathapana, Wing)",
+      "orderSummary": "Order Summary",
+      "monthlySubscription": "Monthly subscription",
+      "oneTimePurchase": "One-time purchase",
+      "paymentMethods": "Payment Methods",
+      "redirectHint": "You will be redirected to our secure payment page where you can choose from:",
+      "supportsNote": "Supports KHQR, Mobile Banking Deeplinks, and Card payments (via ABA)",
+      "paymentError": "Payment Error",
+      "redirecting": "Redirecting to payment...",
+      "pay": "Pay {amount}",
+      "signInTitle": "Sign in to continue",
+      "signInDesc": "You need an account to purchase and keep access to this content.",
+      "signInToPay": "Sign in to pay",
+      "createAccount": "Create account",
+      "secureNote": "Secure payment processed by licensed Cambodian banks",
+      "howItWorks": "How It Works",
+      "step1": "Click Pay to go to the secure payment page",
+      "step2": "Select your preferred bank or payment method",
+      "step3": "Scan QR code or complete payment in your banking app",
+      "step4": "Get instant access to your content",
+      "defaultMovie": "Movie purchase",
+      "defaultSubscription": "Series subscription",
+      "needSignIn": "You need to sign in before making a payment.",
+      "genericFailure": "Payment failed. Please try again.",
+      "failedToCreate": "Failed to create payment",
+      "noPaymentUrl": "No payment URL received",
+      "bankAba": "ABA Bank",
+      "bankAcleda": "ACLEDA",
+      "bankSathapana": "Sathapana",
+      "bankWing": "Wing",
+      "bankAbaAlt": "ABA Bank logo",
+      "bankAcledaAlt": "ACLEDA Bank logo",
+      "bankSathapanaAlt": "Sathapana Bank logo",
+      "bankWingAlt": "Wing logo"
+    }
   },
   "footer": {
     "tagline": "Your premium destination for movies and dramas. Stream the latest blockbusters and timeless classics in stunning quality, anytime, anywhere.",
@@ -244,5 +328,9 @@
     "desc": "The page you are looking for does not exist or has been moved.",
     "backToHome": "Back to Home",
     "browse": "Browse"
+  },
+  "common": {
+    "previousPage": "Previous page",
+    "nextPage": "Next page"
   }
 }

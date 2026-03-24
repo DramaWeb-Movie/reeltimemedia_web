@@ -12,6 +12,7 @@ import DramaCardCompact from '@/components/drama/DramaCardCompact';
 import { DRAMA_CARD_GRID } from '@/lib/drama-grid';
 import { getMovieById, getRecommendedMovies } from '@/lib/movies';
 import WatchAccessGate from '@/components/watch/WatchAccessGate';
+import { getTranslations } from 'next-intl/server';
 
 export default async function WatchPage({
   params,
@@ -20,6 +21,7 @@ export default async function WatchPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ ep?: string }>;
 }) {
+  const t = await getTranslations('watch');
   const { id } = await params;
   const { ep } = await searchParams;
   const episodeNum = ep ? Math.max(1, parseInt(ep, 10) || 1) : 1;
@@ -67,10 +69,10 @@ export default async function WatchPage({
             <Link
               href={`/drama/${id}`}
               className="flex items-center justify-center w-10 h-10 sm:w-auto sm:h-auto shrink-0 rounded-full sm:rounded-full text-(--text-secondary) hover:text-(--primary-red) hover:bg-(--primary-red)/5 transition-colors sm:px-3 sm:py-2 sm:-ml-2"
-              aria-label="Back to drama"
+              aria-label={t('ariaBackToDrama')}
             >
               <FiArrowLeft className="text-xl sm:text-lg" />
-              <span className="hidden sm:inline ml-2 text-sm font-medium">Back to drama</span>
+              <span className="hidden sm:inline ml-2 text-sm font-medium">{t('backToDrama')}</span>
             </Link>
             <span className="hidden md:inline w-px h-4 bg-(--dark-border) shrink-0" aria-hidden />
             <h1
@@ -80,7 +82,8 @@ export default async function WatchPage({
               {title}
             </h1>
             <span className="shrink-0 inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-(--primary-red)/10 text-(--primary-red) border border-(--primary-red)/30 px-2.5 py-1.5 sm:px-3 text-xs font-semibold uppercase tracking-wide">
-              <FiFilm className="shrink-0 text-xs sm:text-sm" /> {isSinglePart ? 'Movie' : `Ep. ${episodeNum}`}
+              <FiFilm className="shrink-0 text-xs sm:text-sm" />{' '}
+              {isSinglePart ? t('movieLabel') : t('episodeBadge', { num: episodeNum })}
             </span>
           </div>
         </div>
@@ -107,12 +110,12 @@ export default async function WatchPage({
               <div className="glass rounded-xl border border-gray-200 bg-white px-4 sm:px-5 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 shadow-sm">
                 <div className="flex-1 min-w-0">
                   <p className="text-[11px] sm:text-xs uppercase tracking-[0.18em] text-(--text-muted) mb-1">
-                    Now playing
+                    {t('nowPlaying')}
                   </p>
                   <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                     {!isSinglePart && (
                       <span className="inline-flex items-center justify-center rounded-lg bg-(--primary-red) text-white text-[11px] font-semibold px-2.5 py-1">
-                        Ep. {episodeNum}
+                        {t('episodeBadge', { num: episodeNum })}
                       </span>
                     )}
                     <p className="text-sm sm:text-base md:text-lg font-semibold text-gray-900 truncate">
@@ -122,7 +125,7 @@ export default async function WatchPage({
                   <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] sm:text-xs text-gray-600">
                     {runtimeMinutes && (
                       <span className="inline-flex items-center gap-1">
-                        <FiClock className="text-gray-400" /> {runtimeMinutes} min
+                        <FiClock className="text-gray-400" /> {t('minutesShort', { n: runtimeMinutes })}
                       </span>
                     )}
                     {releaseYear && (
@@ -130,7 +133,7 @@ export default async function WatchPage({
                         <FiCalendar className="text-gray-400" /> {releaseYear}
                       </span>
                     )}
-                    {typeof rating === 'number' && (
+                    {rating != null && (
                       <span className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-2 py-0.5 text-[11px]">
                         ⭐ {rating.toFixed(1)}/10
                       </span>
@@ -158,7 +161,7 @@ export default async function WatchPage({
                         href={`/drama/${id}/watch?ep=${episodeNum - 1}`}
                         className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white text-xs sm:text-[11px] text-gray-700 hover:bg-gray-50 hover:border-gray-300 px-3 py-1.5 transition-colors"
                       >
-                        Previous
+                        {t('previousEpisode')}
                       </Link>
                     )}
                     {hasNextEpisode && (
@@ -166,7 +169,7 @@ export default async function WatchPage({
                         href={`/drama/${id}/watch?ep=${episodeNum + 1}`}
                         className="inline-flex items-center justify-center rounded-lg bg-(--primary-red) text-xs sm:text-[11px] text-white hover:bg-(--primary-red)/90 px-3 py-1.5 transition-colors"
                       >
-                        Next episode
+                        {t('nextEpisode')}
                         <FiChevronRight className="ml-1 text-xs" />
                       </Link>
                     )}
@@ -180,19 +183,20 @@ export default async function WatchPage({
                   <div className="flex items-center gap-2 mb-2">
                     <span className="inline-flex h-6 w-1 rounded-full bg-(--primary-red)" />
                     <p className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
-                      <FiInfo className="text-(--primary-red)" /> About this {isSinglePart ? 'movie' : 'series'}
+                      <FiInfo className="text-(--primary-red)" />{' '}
+                      {isSinglePart ? t('aboutMovie') : t('aboutSeries')}
                     </p>
                   </div>
                   <p className="text-xs sm:text-sm text-gray-600 leading-relaxed line-clamp-3 sm:line-clamp-4">
-                    {description || 'No description available for this title yet.'}
+                    {description || t('noDescription')}
                   </p>
                   <div className="mt-3 flex items-center justify-between text-[11px] sm:text-xs text-gray-400">
-                    <span>Watching on ReelTime Media</span>
+                    <span>{t('watchingOn')}</span>
                     <Link
                       href={`/drama/${id}`}
                       className="inline-flex items-center gap-1 text-(--primary-red) hover:text-(--primary-red)/80 font-medium"
                     >
-                      View full details
+                      {t('viewFullDetails')}
                       <FiChevronRight className="text-xs" />
                     </Link>
                   </div>
@@ -209,10 +213,12 @@ export default async function WatchPage({
                     <span className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-(--primary-red) text-white shadow-md">
                       <FiFilm className="text-xs sm:text-sm" />
                     </span>
-                    Episodes
+                    {t('episodesListTitle')}
                   </h2>
                   <p className="text-(--text-muted) text-xs sm:text-sm mt-0.5 sm:mt-1">
-                    {totalEpisodes} episode{totalEpisodes > 1 ? 's' : ''}
+                    {totalEpisodes === 1
+                      ? t('episodeTotalOne', { count: totalEpisodes })
+                      : t('episodeTotalOther', { count: totalEpisodes })}
                   </p>
                 </div>
                 <div className="max-h-[45vh] sm:max-h-[50vh] lg:max-h-[calc(100vh-14rem)] overflow-y-auto scrollbar-hide">
@@ -238,7 +244,7 @@ export default async function WatchPage({
                             {num}
                           </span>
                           <span className="flex-1 text-sm">
-                            Episode {num}
+                            {t('episodeNumbered', { num })}
                           </span>
                           {currentEpisode?.episodeNumber === num && runtimeMinutes && (
                             <span className="text-[11px] text-gray-500">
@@ -262,11 +268,11 @@ export default async function WatchPage({
               <div className="flex items-center gap-2">
                 <span className="inline-flex h-7 w-1.5 rounded-full bg-(--primary-red)" />
                 <h2 className="text-lg sm:text-xl font-bold text-gray-900">
-                  You may also like
+                  {t('youMayAlsoLike')}
                 </h2>
               </div>
               <span className="text-xs sm:text-sm text-gray-500">
-                Handpicked based on what you&apos;re watching
+                {t('handpickedForYou')}
               </span>
             </div>
             <div className={DRAMA_CARD_GRID}>

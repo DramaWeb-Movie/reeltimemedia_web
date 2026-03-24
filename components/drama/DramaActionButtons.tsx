@@ -1,5 +1,8 @@
+'use client';
+
 import Link from 'next/link';
 import { FiPlay, FiDollarSign } from 'react-icons/fi';
+import { useTranslations } from 'next-intl';
 import type { Drama } from '@/types';
 
 interface DramaActionButtonsProps {
@@ -60,6 +63,8 @@ export default function DramaActionButtons({
   hasPurchasedMovie,
   variant = 'compact',
 }: DramaActionButtonsProps) {
+  const tWatch = useTranslations('watch');
+  const tDrama = useTranslations('drama');
   const isHero = variant === 'hero';
   const { primary, secondary } = STYLES[variant];
   const encodedTitle = encodeURIComponent(drama.title);
@@ -67,7 +72,7 @@ export default function DramaActionButtons({
   if (isFreeMovie) {
     return (
       <Link href={`/drama/${id}/watch`} className={primary}>
-        <ButtonContent icon={FiPlay} label="Watch Now" isHero={isHero} />
+        <ButtonContent icon={FiPlay} label={tWatch('watchNow')} isHero={isHero} />
       </Link>
     );
   }
@@ -75,14 +80,18 @@ export default function DramaActionButtons({
   if (drama.contentType === 'movie' && drama.price != null && drama.price > 0) {
     return hasPurchasedMovie ? (
       <Link href={`/drama/${id}/watch`} className={primary}>
-        <ButtonContent icon={FiPlay} label="Watch" isHero={isHero} />
+        <ButtonContent icon={FiPlay} label={tDrama('watch')} isHero={isHero} />
       </Link>
     ) : (
       <Link
         href={`/payment?type=movie&id=${id}&amount=${drama.price}&title=${encodedTitle}`}
         className={primary}
       >
-        <ButtonContent icon={FiDollarSign} label={`Buy $${drama.price.toFixed(2)}`} isHero={isHero} />
+        <ButtonContent
+          icon={FiDollarSign}
+          label={tDrama('buyFor', { price: `$${drama.price.toFixed(2)}` })}
+          isHero={isHero}
+        />
       </Link>
     );
   }
@@ -91,7 +100,7 @@ export default function DramaActionButtons({
     return (
       <>
         <Link href={`/drama/${id}/watch?ep=1`} className={primary}>
-          <ButtonContent icon={FiPlay} label="Watch" isHero={isHero} />
+          <ButtonContent icon={FiPlay} label={tDrama('watch')} isHero={isHero} />
         </Link>
         {drama.monthlyPrice != null && (
           <Link
@@ -101,10 +110,10 @@ export default function DramaActionButtons({
             {isHero ? (
               <>
                 <FiDollarSign className="text-lg" />
-                Subscribe ${drama.monthlyPrice.toFixed(2)}/mo
+                {tDrama('subscribePerMonth', { price: `$${drama.monthlyPrice.toFixed(2)}` })}
               </>
             ) : (
-              `Subscribe $${drama.monthlyPrice.toFixed(2)}/mo`
+              tDrama('subscribePerMonth', { price: `$${drama.monthlyPrice.toFixed(2)}` })
             )}
           </Link>
         )}
@@ -114,7 +123,7 @@ export default function DramaActionButtons({
 
   return (
     <Link href={`/drama/${id}/watch`} className={primary}>
-      <ButtonContent icon={FiPlay} label="Watch Now" isHero={isHero} />
+      <ButtonContent icon={FiPlay} label={tWatch('watchNow')} isHero={isHero} />
     </Link>
   );
 }

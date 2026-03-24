@@ -1,10 +1,17 @@
 import type { NextConfig } from "next";
+import path from "path";
 import createNextIntlPlugin from 'next-intl/plugin';
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 
 const nextConfig: NextConfig = {
+  // Avoid wrong Turbopack root when a parent folder has its own lockfile (see Next.js warning).
+  turbopack: {
+    root: path.resolve(process.cwd()),
+  },
   images: {
+    loader: 'custom',
+    loaderFile: './imageLoader.ts',
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     remotePatterns: [
