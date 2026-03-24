@@ -9,12 +9,11 @@ const R2_PUBLIC_HOST = 'pub-ac9788ff252148bd812a13ddd99ab8a4.r2.dev';
  */
 export default function imageLoader({ src, width, quality }: ImageLoaderProps): string {
   const q = quality ?? 75;
-  if (src.includes(R2_PUBLIC_HOST)) {
-    return src;
+  // With a custom loader, return a concrete URL directly.
+  // Appending width/quality keeps Next.js happy that loader uses width.
+  const separator = src.includes('?') ? '&' : '?';
+  if (src.includes(R2_PUBLIC_HOST) || src.startsWith('/')) {
+    return `${src}${separator}w=${encodeURIComponent(String(width))}&q=${encodeURIComponent(String(q))}`;
   }
-  const params = new URLSearchParams();
-  params.set('url', src);
-  params.set('w', String(width));
-  params.set('q', String(q));
-  return `/_next/image?${params.toString()}`;
+  return src;
 }
