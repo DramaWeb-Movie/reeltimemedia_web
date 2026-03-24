@@ -95,7 +95,6 @@ export async function GET() {
       genres: row.genre
         ? row.genre.split(',').map((g: string) => g.trim()).filter(Boolean)
         : [],
-      country: row.country || '',
       episodes: [],
       cast: [],
       status: 'completed',

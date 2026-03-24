@@ -1,6 +1,6 @@
 import { type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
-import { formatRequestLogLine } from '@/lib/logging/requestLog';
+import { logApiRequest } from '@/lib/logging/requestLog';
 
 export async function middleware(request: NextRequest) {
   const start = Date.now();
@@ -9,12 +9,12 @@ export async function middleware(request: NextRequest) {
 
   // Keep logs focused: API traffic is typically what you want for auditing/abuse detection.
   if (request.nextUrl.pathname.startsWith('/api/')) {
-    const line = formatRequestLogLine({
+    logApiRequest({
       request,
       status: response.status,
       durationMs: Date.now() - start,
+      route: request.nextUrl.pathname,
     });
-    console.log(line);
   }
 
   return response;

@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getMovieById } from '@/lib/movies';
+import { checkRateLimit } from '@/lib/logging/requestLog';
 
 function getAllowedOrigin(request: NextRequest): string {
   const env = process.env.NEXT_PUBLIC_APP_URL?.trim();
@@ -27,6 +28,18 @@ function isRequestFromOurSite(request: NextRequest): boolean {
  * Supports Range requests for video seeking.
  */
 export async function GET(request: NextRequest) {
+  const rate = await checkRateLimit(request, {
+    namespace: 'api:watch:stream',
+    max: 120,
+    windowMs: 60 * 1000,
+    blockMs: 10 * 60 * 1000,
+  });
+  if (!rate.allowed) {
+    const headers = new Headers();
+    if (rate.retryAfterSeconds) headers.set('Retry-After', String(rate.retryAfterSeconds));
+    return new Response('Too many requests', { status: rate.status, headers });
+  }
+
   if (!isRequestFromOurSite(request)) {
     const home = process.env.NEXT_PUBLIC_APP_URL?.trim()?.replace(/\/$/, '') || request.nextUrl.origin;
     return new Response(null, { status: 302, headers: { Location: `${home}/` } });

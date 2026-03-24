@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { processWebhook, BarayWebhookPayload } from '@/lib/baray';
+import { checkRateLimit } from '@/lib/logging/requestLog';
 
 /**
  * Baray Webhook Handler
@@ -13,6 +14,21 @@ import { processWebhook, BarayWebhookPayload } from '@/lib/baray';
  * }
  */
 export async function POST(request: NextRequest) {
+  const rate = await checkRateLimit(request, {
+    namespace: 'api:payments:baray:webhook',
+    max: 90,
+    windowMs: 60 * 1000,
+    blockMs: 5 * 60 * 1000,
+  });
+  if (!rate.allowed) {
+    const headers = new Headers();
+    if (rate.retryAfterSeconds) headers.set('Retry-After', String(rate.retryAfterSeconds));
+    return new NextResponse(JSON.stringify({ error: 'Too many requests' }), {
+      status: rate.status,
+      headers,
+    });
+  }
+
   try {
     // Verify webhook secret header if BARAY_WEBHOOK_SECRET is configured.
     // Set this to a shared secret agreed upon with Baray (or any reverse-proxy layer)
@@ -54,7 +70,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`Payment confirmed for order ${orderId} via ${bankCode}`);
+    console.log(JSON.stringify({
+      event: 'payment_webhook_received',
+      bank: bankCode,
+      at: new Date().toISOString(),
+    }));
 
     // Get admin client to bypass RLS
     const adminClient = createAdminClient();
@@ -67,57 +87,41 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (findError || !payment) {
-      console.error('Payment not found for order:', orderId, findError);
+      console.error('Payment not found for webhook payload', findError);
       // Return 200 anyway to prevent Baray from retrying
       return NextResponse.json({ status: 'acknowledged', found: false });
     }
 
     // Check if already processed (idempotency)
     if (payment.status === 'completed') {
-      console.log('Payment already processed:', orderId);
+      console.log(JSON.stringify({
+        event: 'payment_webhook_already_processed',
+        paymentId: payment.id,
+        at: new Date().toISOString(),
+      }));
       return NextResponse.json({ status: 'already_processed' });
     }
 
-    // Update payment status to completed
-    const { error: updateError } = await adminClient
-      .from('payments')
-      .update({
-        status: 'completed',
-        transaction_id: `${bankCode}-${Date.now()}`,
-        completed_at: new Date().toISOString(),
-      })
-      .eq('id', payment.id);
+    // Transaction-like ordering: grant entitlement first, then mark payment as completed.
+    // This avoids a partial state where payment is "completed" but access was not granted.
+    let entitlementError: unknown = null;
+    const nowIso = new Date().toISOString();
 
-    if (updateError) {
-      console.error('Failed to update payment status:', updateError);
-      return NextResponse.json(
-        { error: 'Failed to update payment' },
-        { status: 500 }
-      );
-    }
-
-    // Handle content access based on payment type
     if (payment.content_type === 'movie' && payment.content_id && payment.user_id) {
-      // Grant access to purchased movie
       const { error: purchaseError } = await adminClient
         .from('purchases')
         .upsert({
           user_id: payment.user_id,
           content_id: payment.content_id,
           content_type: 'movie',
-          purchased_at: new Date().toISOString(),
+          purchased_at: nowIso,
         }, {
           onConflict: 'user_id,content_id',
         });
-
-      if (purchaseError) {
-        console.error('Failed to create purchase record:', purchaseError);
-      }
+      entitlementError = purchaseError;
     } else if (payment.content_type === 'subscription' && payment.user_id) {
-      // Create or extend subscription
       const expiresAt = new Date();
       expiresAt.setMonth(expiresAt.getMonth() + 1); // 1 month subscription
-
       const { error: subError } = await adminClient
         .from('subscriptions')
         .upsert({
@@ -128,13 +132,41 @@ export async function POST(request: NextRequest) {
         }, {
           onConflict: 'user_id',
         });
-
-      if (subError) {
-        console.error('Failed to create subscription:', subError);
-      }
+      entitlementError = subError;
     }
 
-    console.log(`Successfully processed payment for order ${orderId}`);
+    if (entitlementError) {
+      console.error('Failed to grant entitlement from webhook:', entitlementError);
+      return NextResponse.json(
+        { error: 'Failed to grant entitlement' },
+        { status: 500 }
+      );
+    }
+
+    // Mark as completed only after entitlement succeeds. Status guard keeps this idempotent.
+    const { error: updateError } = await adminClient
+      .from('payments')
+      .update({
+        status: 'completed',
+        transaction_id: `${bankCode}-${Date.now()}`,
+        completed_at: nowIso,
+      })
+      .eq('id', payment.id)
+      .neq('status', 'completed');
+
+    if (updateError) {
+      console.error('Failed to update payment status:', updateError);
+      return NextResponse.json(
+        { error: 'Failed to update payment' },
+        { status: 500 }
+      );
+    }
+
+    console.log(JSON.stringify({
+      event: 'payment_webhook_processed',
+      paymentId: payment.id,
+      at: new Date().toISOString(),
+    }));
 
     // Respond with 200 OK as required by Baray
     return NextResponse.json({ status: 'success', order_id: orderId });
