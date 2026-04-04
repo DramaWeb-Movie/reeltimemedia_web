@@ -1,21 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { checkRateLimit } from '@/lib/logging/requestLog';
+import { enforceRateLimit } from '@/lib/api/rateLimit';
 import { isWatchRequestFromOurSite } from '@/lib/watch/requestOrigin';
 import { grantPlaybackAccess } from '@/lib/watch/playbackAccess';
 import { getPlaybackTokenTtlSeconds, signPlaybackToken } from '@/lib/watch/playbackToken';
 
 export async function POST(request: NextRequest) {
-  const rate = await checkRateLimit(request, {
+  const blocked = await enforceRateLimit(
+    request,
+    {
     namespace: 'api:watch:session',
     max: 60,
     windowMs: 60 * 1000,
     blockMs: 10 * 60 * 1000,
-  });
-  if (!rate.allowed) {
-    const headers = new Headers();
-    if (rate.retryAfterSeconds) headers.set('Retry-After', String(rate.retryAfterSeconds));
-    return new NextResponse('Too many requests', { status: rate.status, headers });
-  }
+    },
+    { type: 'text', body: 'Too many requests' }
+  );
+  if (blocked) return blocked;
 
   if (!isWatchRequestFromOurSite(request)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAnonClient } from '@/lib/supabase/server';
 import type { MovieCard } from '@/lib/movies';
-import { checkRateLimit } from '@/lib/logging/requestLog';
+import { enforceRateLimit } from '@/lib/api/rateLimit';
 
 const CARD_COLUMNS =
   'id, title, title_kh, description, genre, release_date, thumbnail_url, type, price, free_episodes_count, total_episodes';
@@ -21,20 +21,17 @@ function escapeForILike(value: string): string {
 }
 
 export async function GET(request: NextRequest) {
-  const rate = await checkRateLimit(request, {
+  const blocked = await enforceRateLimit(
+    request,
+    {
     namespace: 'api:search',
     max: 40,
     windowMs: 60 * 1000,
     blockMs: 5 * 60 * 1000,
-  });
-  if (!rate.allowed) {
-    const headers = new Headers();
-    if (rate.retryAfterSeconds) headers.set('Retry-After', String(rate.retryAfterSeconds));
-    return new NextResponse(JSON.stringify({ error: 'Too many requests' }), {
-      status: rate.status,
-      headers,
-    });
-  }
+    },
+    { type: 'json', body: { error: 'Too many requests' } }
+  );
+  if (blocked) return blocked;
 
   const { searchParams } = request.nextUrl;
   const qRaw = searchParams.get('q')?.trim() ?? '';

@@ -14,7 +14,7 @@ export default function TagFilter({ tags, selectedTag, onTagSelect }: TagFilterP
             onClick={() => onTagSelect(tag.toLowerCase())}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ${
               selectedTag === tag.toLowerCase()
-                ? 'bg-gradient-to-r from-[#E31837] to-[#E31837] text-white shadow-md'
+                ? 'bg-linear-to-r from-brand-red to-brand-red text-white shadow-md'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 border border-gray-200'
             }`}
           >

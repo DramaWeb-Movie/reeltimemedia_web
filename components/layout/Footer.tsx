@@ -34,16 +34,16 @@ export default async function Footer() {
               {t('tagline')}
             </p>
             <div className="flex gap-2">
-              <a href="#" className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 hover:bg-[#E31837] hover:text-white transition-all duration-300" aria-label="Facebook">
+              <a href="#" className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 hover:bg-brand-red hover:text-white transition-all duration-300" aria-label="Facebook">
                 <FiFacebook className="text-sm" />
               </a>
-              <a href="#" className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 hover:bg-[#E31837] hover:text-white transition-all duration-300" aria-label="Twitter">
+              <a href="#" className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 hover:bg-brand-red hover:text-white transition-all duration-300" aria-label="Twitter">
                 <FiTwitter className="text-sm" />
               </a>
-              <a href="#" className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 hover:bg-[#E31837] hover:text-white transition-all duration-300" aria-label="Instagram">
+              <a href="#" className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 hover:bg-brand-red hover:text-white transition-all duration-300" aria-label="Instagram">
                 <FiInstagram className="text-sm" />
               </a>
-              <a href="#" className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 hover:bg-[#E31837] hover:text-white transition-all duration-300" aria-label="YouTube">
+              <a href="#" className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 hover:bg-brand-red hover:text-white transition-all duration-300" aria-label="YouTube">
                 <FiYoutube className="text-sm" />
               </a>
             </div>

@@ -1,5 +1,6 @@
 'use client';
 
+import { memo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { FiPlay } from 'react-icons/fi';
@@ -19,7 +20,7 @@ interface DramaCardCompactProps {
   price?: number;
 }
 
-export default function DramaCardCompact({ id, title, titleKh, episodes, image, showWatchButton, showMovieButton, hasPurchased, price }: DramaCardCompactProps) {
+const DramaCardCompact = memo(function DramaCardCompact({ id, title, titleKh, episodes, image, showWatchButton, showMovieButton, hasPurchased, price }: DramaCardCompactProps) {
   const t = useTranslations('watch');
   const tMovies = useTranslations('movies');
   const watchHref = episodes > 1 ? `/drama/${id}/watch?ep=1` : `/drama/${id}/watch`;
@@ -49,7 +50,7 @@ export default function DramaCardCompact({ id, title, titleKh, episodes, image, 
 
             {/* Free badge (movies only) */}
             {isFreeMovie && (
-              <div className="absolute top-3 right-3 bg-[#FFB800] text-gray-900 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide shadow-sm">
+              <div className="absolute top-3 right-3 bg-accent-gold text-gray-900 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide shadow-sm">
                 {tMovies('free')}
               </div>
             )}
@@ -62,13 +63,13 @@ export default function DramaCardCompact({ id, title, titleKh, episodes, image, 
 
             {/* Play Button on Hover */}
             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
-              <div className="w-12 h-12 rounded-full bg-[#E31837] flex items-center justify-center transform scale-75 group-hover:scale-100 transition-transform duration-300 shadow-lg">
+              <div className="w-12 h-12 rounded-full bg-brand-red flex items-center justify-center transform scale-75 group-hover:scale-100 transition-transform duration-300 shadow-lg">
                 <FiPlay className="text-white text-lg ml-0.5" />
               </div>
             </div>
           </div>
           <div className="p-3 min-h-[4.5rem] flex flex-col shrink-0">
-            <h3 className="font-semibold text-sm line-clamp-2 text-gray-900 group-hover:text-[#E31837] transition-colors">
+            <h3 className="font-semibold text-sm line-clamp-2 text-gray-900 group-hover:text-brand-red transition-colors">
               {title}
             </h3>
             <p className={`text-xs text-gray-500 mt-0.5 line-clamp-2 ${!titleKh ? 'invisible' : ''}`} lang="km" aria-hidden={!titleKh}>
@@ -80,7 +81,7 @@ export default function DramaCardCompact({ id, title, titleKh, episodes, image, 
           <div className="px-3 pb-3 shrink-0">
             <Link
               href={buttonHref}
-              className="mt-2 inline-flex items-center justify-center gap-1.5 w-full py-2 rounded-lg bg-[#E31837] text-white text-xs font-semibold hover:bg-[#c0152f] transition-colors"
+              className="mt-2 inline-flex items-center justify-center gap-1.5 w-full py-2 rounded-lg bg-brand-red text-white text-xs font-semibold hover:bg-brand-red-dark transition-colors"
             >
               <FiPlay className="text-[10px]" /> {buttonLabel}
             </Link>
@@ -89,4 +90,6 @@ export default function DramaCardCompact({ id, title, titleKh, episodes, image, 
       </div>
     </div>
   );
-}
+});
+
+export default DramaCardCompact;

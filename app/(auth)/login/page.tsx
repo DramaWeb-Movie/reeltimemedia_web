@@ -8,22 +8,10 @@ import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { FiMail, FiLock, FiPhone } from 'react-icons/fi';
 import { createClient } from '@/lib/supabase/client';
+import { isValidE164, normalizePhone } from '@/lib/auth/phone';
 import { useTranslations } from 'next-intl';
 
 type LoginMethod = 'email' | 'phone';
-
-function normalizePhone(input: string): string {
-  const digits = input.replace(/\D/g, '');
-  if (digits.length === 0) return '';
-  if (digits.startsWith('855') && digits.length >= 9) return '+' + digits;
-  if (digits.startsWith('0') && digits.length >= 9) return '+855' + digits.slice(1);
-  if (digits.length >= 8 && digits.length <= 9) return '+855' + digits;
-  return '+' + digits;
-}
-
-function isValidE164(phone: string): boolean {
-  return /^\+[1-9]\d{8,14}$/.test(phone);
-}
 
 function LoginForm() {
   const t = useTranslations('auth');
@@ -141,7 +129,7 @@ function LoginForm() {
             type="button"
             onClick={() => setLoginMethod('email')}
             className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              loginMethod === 'email' ? 'bg-[#E31837] text-white' : 'text-[#B3B3B3] hover:text-white'
+              loginMethod === 'email' ? 'bg-brand-red text-white' : 'text-[#B3B3B3] hover:text-white'
             }`}
           >
             {t('signInWithEmail')}
@@ -150,7 +138,7 @@ function LoginForm() {
             type="button"
             onClick={() => setLoginMethod('phone')}
             className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              loginMethod === 'phone' ? 'bg-[#E31837] text-white' : 'text-[#B3B3B3] hover:text-white'
+              loginMethod === 'phone' ? 'bg-brand-red text-white' : 'text-[#B3B3B3] hover:text-white'
             }`}
           >
             {t('signInWithPhone')}
@@ -210,14 +198,14 @@ function LoginForm() {
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              className="h-4 w-4 text-[#E31837] bg-[#252525] border-[#333333] rounded focus:ring-[#E31837] focus:ring-offset-[#1A1A1A]"
+              className="h-4 w-4 text-brand-red bg-[#252525] border-[#333333] rounded focus:ring-brand-red focus:ring-offset-[#1A1A1A]"
             />
             <span className="ml-2 text-sm text-[#B3B3B3]">{t('rememberMe')}</span>
           </label>
 
           <Link
             href="/forgot-password"
-            className="text-sm text-[#E31837] hover:text-[#E31837]/80 font-medium transition-colors"
+            className="text-sm text-brand-red hover:text-brand-red/80 font-medium transition-colors"
           >
             {t('forgotPassword')}
           </Link>
@@ -238,7 +226,7 @@ function LoginForm() {
           {t('dontHaveAccount')}{' '}
           <Link
             href="/register"
-            className="font-medium text-[#E31837] hover:text-[#E31837]/80 transition-colors"
+            className="font-medium text-brand-red hover:text-brand-red/80 transition-colors"
           >
             {t('signUp')}
           </Link>

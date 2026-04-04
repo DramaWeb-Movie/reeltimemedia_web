@@ -25,7 +25,7 @@ export default function DramaError({
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
             onClick={reset}
-            className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold bg-[#E31837] text-white hover:bg-[#c0152f] transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold bg-brand-red text-white hover:bg-brand-red-dark transition-colors"
           >
             <FiRefreshCw className="text-lg" /> Try again
           </button>

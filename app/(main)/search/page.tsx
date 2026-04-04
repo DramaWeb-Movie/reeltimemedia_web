@@ -67,7 +67,7 @@ function SearchContent() {
           <p className="text-lg text-gray-500">
             {loading ? (
               <span className="flex items-center gap-2">
-                <span className="animate-spin w-4 h-4 border-2 border-[#E31837] border-t-transparent rounded-full" />
+                <span className="animate-spin w-4 h-4 border-2 border-brand-red border-t-transparent rounded-full" />
                 {t('searching')}
               </span>
             ) : error ? (

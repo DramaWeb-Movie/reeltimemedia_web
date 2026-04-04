@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
 import DramaCardCompact from '@/components/drama/DramaCardCompact';
 import Pagination from '@/components/shared/Pagination';
 import { DRAMA_CARD_GRID } from '@/lib/drama-grid';
@@ -18,6 +19,7 @@ type BrowseContentProps = {
 export default function BrowseContent({ initialDramas, purchasedMovieIds }: BrowseContentProps) {
   const t = useTranslations('browse');
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedQuery = useDebounce(searchQuery, 300);
   const [freeFilter, setFreeFilter] = useState<'all' | 'free' | 'paid'>('all');
   const [typeFilter, setTypeFilter] = useState<'all' | 'movie' | 'series'>('all');
   const [genreFilter, setGenreFilter] = useState<'all' | string>('all');
@@ -37,7 +39,7 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
   }, [initialDramas]);
 
   const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = debouncedQuery.trim().toLowerCase();
 
     return initialDramas.filter((d) => {
       // Text search (Khmer + English)
@@ -75,7 +77,7 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
 
       return true;
     });
-  }, [initialDramas, searchQuery, freeFilter, typeFilter, genreFilter]);
+  }, [initialDramas, debouncedQuery, freeFilter, typeFilter, genreFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginatedDramas = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -105,7 +107,7 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
               setCurrentPage(1);
             }}
             placeholder={t('searchPlaceholder')}
-            className="w-full bg-white border border-gray-200 focus:border-[#E31837]/50 rounded-xl pl-11 pr-10 py-3 text-gray-900 placeholder-gray-400 outline-none transition-colors text-sm shadow-sm"
+            className="w-full bg-white border border-gray-200 focus:border-brand-red/50 rounded-xl pl-11 pr-10 py-3 text-gray-900 placeholder-gray-400 outline-none transition-colors text-sm shadow-sm"
           />
           {searchQuery && (
             <button
@@ -129,7 +131,7 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
                 setFreeFilter(e.target.value as 'all' | 'free' | 'paid');
                 setCurrentPage(1);
               }}
-              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#E31837]/60 focus:border-[#E31837]/60 min-w-[160px]"
+              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-red/60 focus:border-brand-red/60 min-w-[160px]"
             >
               <option value="all">{t('filterAllAccess')}</option>
               <option value="free">{t('filterFree')}</option>
@@ -148,7 +150,7 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
                 setTypeFilter(e.target.value as 'all' | 'movie' | 'series');
                 setCurrentPage(1);
               }}
-              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#E31837]/60 focus:border-[#E31837]/60 min-w-[160px]"
+              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-red/60 focus:border-brand-red/60 min-w-[160px]"
             >
               <option value="all">{t('filterAllTypes')}</option>
               <option value="movie">{t('filterMovies')}</option>
@@ -168,7 +170,7 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
                   setGenreFilter(e.target.value as 'all' | string);
                   setCurrentPage(1);
                 }}
-                className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#E31837]/60 focus:border-[#E31837]/60 min-w-[180px]"
+                className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-red/60 focus:border-brand-red/60 min-w-[180px]"
               >
                 <option value="all">{t('filterAllGenres')}</option>
                 {allGenres.map((genre) => (
@@ -181,13 +183,13 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
           )}
         </div>
 
-        {searchQuery && (
+        {debouncedQuery && (
           <p className="text-gray-400 text-sm mb-6">
             {filtered.length === 0
               ? t('noResultsFound')
               : filtered.length === 1
-                ? t('results', { count: filtered.length, query: searchQuery })
-                : t('resultsPlural', { count: filtered.length, query: searchQuery })}
+                ? t('results', { count: filtered.length, query: debouncedQuery })
+                : t('resultsPlural', { count: filtered.length, query: debouncedQuery })}
           </p>
         )}
 

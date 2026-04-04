@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { processWebhook, BarayWebhookPayload } from '@/lib/baray';
-import { checkRateLimit } from '@/lib/logging/requestLog';
+import { enforceRateLimit } from '@/lib/api/rateLimit';
 
 /**
  * Baray Webhook Handler
@@ -14,20 +14,17 @@ import { checkRateLimit } from '@/lib/logging/requestLog';
  * }
  */
 export async function POST(request: NextRequest) {
-  const rate = await checkRateLimit(request, {
+  const blocked = await enforceRateLimit(
+    request,
+    {
     namespace: 'api:payments:baray:webhook',
     max: 90,
     windowMs: 60 * 1000,
     blockMs: 5 * 60 * 1000,
-  });
-  if (!rate.allowed) {
-    const headers = new Headers();
-    if (rate.retryAfterSeconds) headers.set('Retry-After', String(rate.retryAfterSeconds));
-    return new NextResponse(JSON.stringify({ error: 'Too many requests' }), {
-      status: rate.status,
-      headers,
-    });
-  }
+    },
+    { type: 'json', body: { error: 'Too many requests' } }
+  );
+  if (blocked) return blocked;
 
   try {
     // Verify webhook secret header if BARAY_WEBHOOK_SECRET is configured.

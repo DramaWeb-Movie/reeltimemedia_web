@@ -121,14 +121,14 @@ export default async function DramaDetailPage({
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-2 mb-2">
               {isFreeMovie && (
-                <span className="bg-[#FFB800] text-gray-900 px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wide">
+                <span className="bg-accent-gold text-gray-900 px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wide">
                   {t('free')}
                 </span>
               )}
               {drama.genres.map((genre) => (
                 <span
                   key={genre}
-                  className="bg-[#E31837]/90 text-white px-2.5 py-1 rounded-md text-xs font-medium"
+                  className="bg-brand-red/90 text-white px-2.5 py-1 rounded-md text-xs font-medium"
                 >
                   {genre}
                 </span>
@@ -143,7 +143,7 @@ export default async function DramaDetailPage({
             <div className="flex flex-wrap items-center gap-4 text-sm text-gray-300">
               {drama.rating != null && (
                 <span className="flex items-center gap-1.5">
-                  <FaStar className="text-[#FFB800]" /> {drama.rating.toFixed(1)}
+                  <FaStar className="text-accent-gold" /> {drama.rating.toFixed(1)}
                 </span>
               )}
               <span className="flex items-center gap-1.5">
@@ -220,9 +220,9 @@ export default async function DramaDetailPage({
             {trailerEmbedUrl && (
               <section>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-1 h-8 bg-[#E31837] rounded-full" />
+                  <div className="w-1 h-8 bg-brand-red rounded-full" />
                   <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                    <FiPlay className="text-[#E31837]" /> {t('trailer')}
+                    <FiPlay className="text-brand-red" /> {t('trailer')}
                   </h2>
                 </div>
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
@@ -242,7 +242,7 @@ export default async function DramaDetailPage({
             {/* Overview */}
             <section>
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-1 h-8 bg-[#E31837] rounded-full" />
+                <div className="w-1 h-8 bg-brand-red rounded-full" />
                 <h2 className="text-xl font-bold text-gray-900">{t('overview')}</h2>
               </div>
               <div className="bg-white rounded-xl p-5 md:p-6 border border-gray-200 shadow-sm">
@@ -254,9 +254,9 @@ export default async function DramaDetailPage({
             {drama.contentType === 'series' && (
               <section>
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-1 h-8 bg-[#E31837] rounded-full" />
+                  <div className="w-1 h-8 bg-brand-red rounded-full" />
                   <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                    <FiFilm className="text-[#E31837]" /> {t('episodes')}
+                    <FiFilm className="text-brand-red" /> {t('episodes')}
                   </h2>
                 </div>
                 <div className="bg-white rounded-xl p-5 md:p-6 border border-gray-200 shadow-sm">
@@ -265,7 +265,7 @@ export default async function DramaDetailPage({
                       <Link
                         key={i + 1}
                         href={`/drama/${id}/watch?ep=${i + 1}`}
-                        className="aspect-square flex items-center justify-center rounded-lg bg-gray-100 border border-gray-200 text-gray-900 font-semibold text-sm hover:bg-[#E31837] hover:text-white hover:border-[#E31837] transition-all"
+                        className="aspect-square flex items-center justify-center rounded-lg bg-gray-100 border border-gray-200 text-gray-900 font-semibold text-sm hover:bg-brand-red hover:text-white hover:border-brand-red transition-all"
                       >
                         {i + 1}
                       </Link>
@@ -278,9 +278,9 @@ export default async function DramaDetailPage({
             {/* Cast */}
             <section>
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-1 h-8 bg-[#E31837] rounded-full" />
+                <div className="w-1 h-8 bg-brand-red rounded-full" />
                 <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <FiUsers className="text-[#E31837]" /> {t('cast')}
+                  <FiUsers className="text-brand-red" /> {t('cast')}
                 </h2>
               </div>
               <div className="bg-white rounded-xl p-5 md:p-6 border border-gray-200 shadow-sm">
@@ -288,7 +288,7 @@ export default async function DramaDetailPage({
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {drama.cast.map((member) => (
                       <div key={member.id} className="text-center group">
-                        <div className="relative w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200 group-hover:border-[#E31837] transition-colors flex items-center justify-center">
+                        <div className="relative w-16 h-16 mx-auto mb-2 rounded-full overflow-hidden bg-gray-100 border-2 border-gray-200 group-hover:border-brand-red transition-colors flex items-center justify-center">
                           {member.imageUrl ? (
                             <Image
                               src={member.imageUrl}

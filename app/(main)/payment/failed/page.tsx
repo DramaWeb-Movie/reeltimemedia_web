@@ -26,8 +26,8 @@ function FailedContent() {
     <div className="min-h-screen bg-gray-50 pt-24">
       <div className="container mx-auto px-4 md:px-8 py-8 max-w-2xl">
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
-          <div className="w-20 h-20 rounded-full bg-[#E31837]/10 flex items-center justify-center mx-auto mb-6">
-            <FiAlertCircle className="text-5xl text-[#E31837]" />
+          <div className="w-20 h-20 rounded-full bg-brand-red/10 flex items-center justify-center mx-auto mb-6">
+            <FiAlertCircle className="text-5xl text-brand-red" />
           </div>
 
           <h2 className="text-3xl font-bold text-gray-900 mb-3">{t('failed')}</h2>
@@ -47,15 +47,15 @@ function FailedContent() {
             </h3>
             <ul className="space-y-2 text-gray-600 text-sm">
               <li className="flex items-center gap-2">
-                <FiAlertCircle className="text-[#E31837] shrink-0" />
+                <FiAlertCircle className="text-brand-red shrink-0" />
                 {t('cancelledOrDeclined')}
               </li>
               <li className="flex items-center gap-2">
-                <FiAlertCircle className="text-[#E31837] shrink-0" />
+                <FiAlertCircle className="text-brand-red shrink-0" />
                 {t('noCharges')}
               </li>
               <li className="flex items-center gap-2">
-                <FiAlertCircle className="text-[#E31837] shrink-0" />
+                <FiAlertCircle className="text-brand-red shrink-0" />
                 {t('recordSaved')}
               </li>
             </ul>
@@ -86,7 +86,7 @@ function FailedContent() {
         <div className="mt-6 text-center">
           <p className="text-gray-400 text-sm">
             {t('needHelp')}{' '}
-            <a href="/support" className="text-[#E31837] hover:underline">
+            <a href="/support" className="text-brand-red hover:underline">
               {t('contactSupport')}
             </a>
           </p>
@@ -100,7 +100,7 @@ export default function PaymentFailedPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gray-50 pt-24 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-[#E31837] border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-2 border-brand-red border-t-transparent rounded-full" />
       </div>
     }>
       <FailedContent />

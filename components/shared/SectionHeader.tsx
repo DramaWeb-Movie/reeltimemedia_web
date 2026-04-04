@@ -14,7 +14,7 @@ export default function SectionHeader({
   title,
   viewAllHref,
   viewAllLabel,
-  accentClass = 'bg-[#E31837]',
+  accentClass = 'bg-brand-red',
 }: SectionHeaderProps) {
   return (
     <div className="flex items-center justify-between mb-8">
@@ -24,7 +24,7 @@ export default function SectionHeader({
       </div>
       <Link
         href={viewAllHref}
-        className="text-[#E31837] hover:text-[#E31837]/80 font-medium transition-colors text-sm flex items-center gap-1"
+        className="text-brand-red hover:text-brand-red/80 font-medium transition-colors text-sm flex items-center gap-1"
       >
         {viewAllLabel}
         <FiChevronRight className="text-lg" />

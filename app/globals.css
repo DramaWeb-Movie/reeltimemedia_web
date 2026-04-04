@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@theme {
+  --color-brand-red: #E31837;
+  --color-brand-red-dark: #c0152f;
+  --color-accent-gold: #FFB800;
+}
+
 /* Force light mode — consistent across ALL browsers and OS settings */
 html {
   color-scheme: light;
@@ -11,7 +17,6 @@ html {
 
   /* ReelTime Media Brand Colors */
   --primary-red: #E31837;
-  --primary-orange: #E31837;
   --accent-gold: #FFB800;
 
   /* Light mode surface scale */

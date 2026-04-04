@@ -54,7 +54,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
         className={`w-11 h-11 flex items-center justify-center rounded-xl transition-all duration-300 ${
           currentPage === 1
             ? 'bg-gray-100 text-gray-300 cursor-not-allowed border border-gray-200'
-            : 'bg-white text-gray-700 hover:bg-[#E31837] hover:text-white border border-gray-200 shadow-sm'
+            : 'bg-white text-gray-700 hover:bg-brand-red hover:text-white border border-gray-200 shadow-sm'
         }`}
         aria-label={t('previousPage')}
       >
@@ -79,7 +79,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
             onClick={() => onPageChange(page as number)}
             className={`w-11 h-11 flex items-center justify-center rounded-xl font-medium transition-all duration-300 ${
               currentPage === page
-                ? 'bg-gradient-to-r from-[#E31837] to-[#E31837] text-white shadow-md'
+                ? 'bg-linear-to-r from-brand-red to-brand-red text-white shadow-md'
                 : 'bg-white text-gray-600 hover:bg-gray-100 hover:text-gray-900 border border-gray-200 shadow-sm'
             }`}
           >
@@ -94,7 +94,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
         className={`w-11 h-11 flex items-center justify-center rounded-xl transition-all duration-300 ${
           currentPage === totalPages
             ? 'bg-gray-100 text-gray-300 cursor-not-allowed border border-gray-200'
-            : 'bg-white text-gray-700 hover:bg-[#E31837] hover:text-white border border-gray-200 shadow-sm'
+            : 'bg-white text-gray-700 hover:bg-brand-red hover:text-white border border-gray-200 shadow-sm'
         }`}
         aria-label={t('nextPage')}
       >

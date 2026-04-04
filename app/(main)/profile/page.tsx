@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import type { Drama } from '@/types';
@@ -205,13 +206,15 @@ export default function ProfilePage() {
           <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
             <div className="relative">
               {profile?.avatar_url ? (
+                // avatar_url is user-provided and may be any domain; keep <img> to avoid next/image domain restrictions.
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={profile.avatar_url}
                   alt={displayName}
                   className="w-28 h-28 rounded-2xl object-cover shadow-md"
                 />
               ) : (
-                <div className="w-28 h-28 bg-gradient-to-br from-[#E31837] to-[#E31837] rounded-2xl flex items-center justify-center text-white text-4xl font-bold shadow-md">
+                <div className="w-28 h-28 bg-gradient-to-br from-brand-red to-brand-red rounded-2xl flex items-center justify-center text-white text-4xl font-bold shadow-md">
                   <FiUser className="text-5xl" />
                 </div>
               )}
@@ -234,16 +237,16 @@ export default function ProfilePage() {
               <p className="text-gray-400 mb-4">{t('memberSince', { year: memberSince })}</p>
               <div className="flex flex-wrap justify-center md:justify-start gap-4">
                 <div className="bg-gray-100 rounded-xl px-4 py-2 border border-gray-200">
-                  <span className="text-[#E31837] font-bold">{purchases.length}</span>
+                  <span className="text-brand-red font-bold">{purchases.length}</span>
                   <span className="text-gray-500 ml-2">{t('purchased')}</span>
                 </div>
               </div>
               {/* Subscription: plan + expiry or CTA */}
               <div className="mt-4">
                 {subscription ? (
-                  <div className="inline-flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-4 rounded-xl border border-[#E31837]/20 bg-[#E31837]/5">
+                  <div className="inline-flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-4 rounded-xl border border-brand-red/20 bg-brand-red/5">
                     <div className="flex items-center gap-2">
-                      <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-[#E31837] text-white">
+                      <span className="flex items-center justify-center w-9 h-9 rounded-lg bg-brand-red text-white">
                         <FiCreditCard className="text-lg" />
                       </span>
                       <div>
@@ -252,7 +255,7 @@ export default function ProfilePage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2 text-gray-600">
-                      <FiCalendar className="text-[#E31837] shrink-0" />
+                      <FiCalendar className="text-brand-red shrink-0" />
                       <span className="text-sm">
                         {t('expiresOn', {
                           date: new Date(subscription.expires_at).toLocaleDateString(undefined, {
@@ -270,7 +273,7 @@ export default function ProfilePage() {
                     <p className="text-xs text-gray-500">{t('noActiveSubscriptionDesc')}</p>
                     <Link
                       href="/pricing"
-                      className="inline-flex items-center gap-2 text-sm font-semibold text-[#E31837] hover:text-[#c0152f] transition-colors"
+                      className="inline-flex items-center gap-2 text-sm font-semibold text-brand-red hover:text-brand-red-dark transition-colors"
                     >
                       {t('viewPlans')} →
                     </Link>
@@ -308,7 +311,7 @@ export default function ProfilePage() {
               </p>
               <Link
                 href="/movies"
-                className="inline-flex items-center gap-2 bg-[#E31837] hover:bg-[#c0152f] text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+                className="inline-flex items-center gap-2 bg-brand-red hover:bg-brand-red-dark text-white font-semibold px-6 py-3 rounded-xl transition-colors"
               >
                 <FiPlay className="text-lg" />
                 {t('browseMovies')}
@@ -318,25 +321,27 @@ export default function ProfilePage() {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
               {purchases.map((drama) => (
                 <Link key={drama.id} href={`/drama/${drama.id}/watch`} className="group">
-                  <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden hover:border-[#E31837]/50 transition-all duration-200 shadow-sm">
+                  <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden hover:border-brand-red/50 transition-all duration-200 shadow-sm">
                     <div className="relative aspect-2/3">
-                      <img
+                      <Image
                         src={drama.posterUrl}
                         alt={drama.title}
-                        className="w-full h-full object-cover"
+                        fill
+                        className="object-cover"
+                        sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
                       />
                       <div className="absolute inset-0 bg-linear-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
-                        <div className="w-14 h-14 rounded-full bg-[#E31837] flex items-center justify-center shadow-lg transform scale-75 group-hover:scale-100 transition-transform duration-300">
+                        <div className="w-14 h-14 rounded-full bg-brand-red flex items-center justify-center shadow-lg transform scale-75 group-hover:scale-100 transition-transform duration-300">
                           <FiPlay className="text-white text-xl ml-1" />
                         </div>
                       </div>
-                      <div className="absolute top-3 left-3 bg-[#E31837] text-white text-xs font-bold px-2 py-0.5 rounded-md">
+                      <div className="absolute top-3 left-3 bg-brand-red text-white text-xs font-bold px-2 py-0.5 rounded-md">
                         {t('owned')}
                       </div>
                     </div>
                     <div className="p-3">
-                      <h3 className="font-bold text-sm text-gray-900 line-clamp-1 group-hover:text-[#E31837] transition-colors">
+                      <h3 className="font-bold text-sm text-gray-900 line-clamp-1 group-hover:text-brand-red transition-colors">
                         {drama.title}
                       </h3>
                       {drama.titleKh && (
@@ -367,7 +372,7 @@ export default function ProfilePage() {
               </button>
             </div>
             {editError && (
-              <p className="mb-4 text-sm text-[#E31837]">{editError}</p>
+              <p className="mb-4 text-sm text-brand-red">{editError}</p>
             )}
             <div className="space-y-4">
               <Input

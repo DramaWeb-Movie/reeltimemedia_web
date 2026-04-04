@@ -102,7 +102,7 @@ function PaymentContent() {
       <div className="container mx-auto px-4 md:px-8 py-8 max-w-2xl">
         <Link
           href={id ? `/drama/${id}` : '/movies'}
-          className="inline-flex items-center gap-2 text-gray-500 hover:text-[#E31837] transition-colors text-sm font-medium mb-8"
+          className="inline-flex items-center gap-2 text-gray-500 hover:text-brand-red transition-colors text-sm font-medium mb-8"
         >
           <FiArrowLeft className="text-lg" /> {t('checkout.back')}
         </Link>
@@ -116,7 +116,7 @@ function PaymentContent() {
           {/* Order Summary */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <FiFilm className="text-[#E31837]" /> {t('checkout.orderSummary')}
+              <FiFilm className="text-brand-red" /> {t('checkout.orderSummary')}
             </h2>
             <div className="flex justify-between items-start gap-4">
               <div>
@@ -126,7 +126,7 @@ function PaymentContent() {
                 </p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-xl font-bold text-[#E31837]">
+                <p className="text-xl font-bold text-brand-red">
                   {currency === 'KHR' ? `${displayAmount} KHR` : `$${displayAmount}`}
                 </p>
               </div>
@@ -136,7 +136,7 @@ function PaymentContent() {
           {/* Payment Methods Info */}
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
             <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <FiCreditCard className="text-[#E31837]" /> {t('checkout.paymentMethods')}
+              <FiCreditCard className="text-brand-red" /> {t('checkout.paymentMethods')}
             </h2>
             <p className="text-gray-600 text-sm mb-4">
               {t('checkout.redirectHint')}
@@ -179,7 +179,7 @@ function PaymentContent() {
           {/* Auth-aware Pay Button */}
           {isAuthenticated === null ? (
             <div className="w-full py-4 flex items-center justify-center">
-              <span className="animate-spin w-6 h-6 border-2 border-[#E31837] border-t-transparent rounded-full" />
+              <span className="animate-spin w-6 h-6 border-2 border-brand-red border-t-transparent rounded-full" />
             </div>
           ) : isAuthenticated ? (
             <Button
@@ -235,20 +235,20 @@ function PaymentContent() {
             <h2 className="text-lg font-bold text-gray-900 mb-4">{t('checkout.howItWorks')}</h2>
             <ul className="space-y-3">
               <li className="flex items-start gap-3 text-gray-600 text-sm">
-                <div className="w-6 h-6 rounded-full bg-[#E31837]/10 flex items-center justify-center shrink-0">
-                  <span className="text-[#E31837] text-xs font-bold">1</span>
+                <div className="w-6 h-6 rounded-full bg-brand-red/10 flex items-center justify-center shrink-0">
+                  <span className="text-brand-red text-xs font-bold">1</span>
                 </div>
                 {t('checkout.step1')}
               </li>
               <li className="flex items-start gap-3 text-gray-600 text-sm">
-                <div className="w-6 h-6 rounded-full bg-[#E31837]/10 flex items-center justify-center shrink-0">
-                  <span className="text-[#E31837] text-xs font-bold">2</span>
+                <div className="w-6 h-6 rounded-full bg-brand-red/10 flex items-center justify-center shrink-0">
+                  <span className="text-brand-red text-xs font-bold">2</span>
                 </div>
                 {t('checkout.step2')}
               </li>
               <li className="flex items-start gap-3 text-gray-600 text-sm">
-                <div className="w-6 h-6 rounded-full bg-[#E31837]/10 flex items-center justify-center shrink-0">
-                  <span className="text-[#E31837] text-xs font-bold">3</span>
+                <div className="w-6 h-6 rounded-full bg-brand-red/10 flex items-center justify-center shrink-0">
+                  <span className="text-brand-red text-xs font-bold">3</span>
                 </div>
                 {t('checkout.step3')}
               </li>
@@ -270,7 +270,7 @@ export default function PaymentPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gray-50 pt-24 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-[#E31837] border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-2 border-brand-red border-t-transparent rounded-full" />
       </div>
     }>
       <PaymentContent />

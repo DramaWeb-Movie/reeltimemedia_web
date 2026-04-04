@@ -64,7 +64,7 @@ export default function SocialShare({ url, title }: SocialShareProps) {
       </button>
       <button
         onClick={() => handleShare('instagram')}
-        className="w-10 h-10 rounded-full bg-gradient-to-br from-[#833AB4] via-[#FD1D1D] to-[#F77737] hover:opacity-90 flex items-center justify-center text-white transition-all hover:scale-110"
+        className="w-10 h-10 rounded-full bg-linear-to-br from-[#833AB4] via-[#FD1D1D] to-[#F77737] hover:opacity-90 flex items-center justify-center text-white transition-all hover:scale-110"
         aria-label="Share on Instagram"
       >
         <FaInstagram className="text-xl" />
@@ -74,7 +74,7 @@ export default function SocialShare({ url, title }: SocialShareProps) {
         className={`w-10 h-10 rounded-full flex items-center justify-center text-white transition-all hover:scale-110 ${
           copied 
             ? 'bg-green-500' 
-            : 'bg-[#1A1A1A] border border-[#333333] hover:border-[#E31837]'
+            : 'bg-[#1A1A1A] border border-[#333333] hover:border-brand-red'
         }`}
         aria-label="Copy link"
       >

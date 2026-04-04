@@ -8,7 +8,7 @@ export default async function NotFound() {
   return (
     <div className="min-h-[70vh] flex flex-col items-center justify-center px-4 bg-gray-50">
       <div className="text-center max-w-lg">
-        <p className="text-[#E31837] font-semibold tracking-widest uppercase text-sm mb-2">
+        <p className="text-brand-red font-semibold tracking-widest uppercase text-sm mb-2">
           {t("error")}
         </p>
         <h1 className="text-6xl md:text-8xl font-bold text-gray-900 mb-4">

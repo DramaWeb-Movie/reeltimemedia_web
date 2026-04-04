@@ -1,10 +1,8 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { getTranslations } from 'next-intl/server';
+import MainNavLinks from '@/components/layout/MainNavLinks';
 
 export default async function LogoAndNav() {
-  const t = await getTranslations('nav');
-
   return (
     <>
       <Link href="/" className="shrink-0 hover:opacity-90 transition-opacity flex items-center gap-3 group">
@@ -27,20 +25,7 @@ export default async function LogoAndNav() {
         </div>
       </Link>
 
-      <div className="hidden lg:flex items-center gap-1 bg-gray-100/80 rounded-full px-2 py-1 backdrop-blur-sm border border-gray-200/70">
-        <Link href="/home" className="px-5 py-2.5 text-sm font-medium text-gray-900 hover:text-[#E31837] transition-colors rounded-full hover:bg-gray-100">
-          {t('home')}
-        </Link>
-        <Link href="/browse" className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors rounded-full hover:bg-gray-100">
-          {t('browse')}
-        </Link>
-        <Link href="/movies" className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors rounded-full hover:bg-gray-100">
-          {t('movies')}
-        </Link>
-        <Link href="/series" className="px-5 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors rounded-full hover:bg-gray-100">
-          {t('series')}
-        </Link>
-      </div>
+      <MainNavLinks />
     </>
   );
 }

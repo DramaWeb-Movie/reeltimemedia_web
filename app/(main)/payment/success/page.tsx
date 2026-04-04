@@ -26,14 +26,14 @@ function SuccessContent() {
       <div className="min-h-screen bg-gray-50 pt-24">
         <div className="container mx-auto px-4 md:px-8 py-8 max-w-2xl">
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
-            <div className="w-16 h-16 rounded-full bg-[#E31837]/10 flex items-center justify-center mx-auto mb-4">
-              <FiClock className="text-4xl text-[#E31837] animate-pulse" />
+            <div className="w-16 h-16 rounded-full bg-brand-red/10 flex items-center justify-center mx-auto mb-4">
+              <FiClock className="text-4xl text-brand-red animate-pulse" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('confirming')}</h2>
             <p className="text-gray-500 mb-6">
               {t('pleaseWait')}
             </p>
-            <div className="animate-spin w-8 h-8 border-2 border-[#E31837] border-t-transparent rounded-full mx-auto" />
+            <div className="animate-spin w-8 h-8 border-2 border-brand-red border-t-transparent rounded-full mx-auto" />
           </div>
         </div>
       </div>
@@ -104,7 +104,7 @@ function SuccessContent() {
         <div className="mt-6 text-center">
           <p className="text-gray-400 text-sm">
             {t('havingIssues')}{' '}
-            <a href="/support" className="text-[#E31837] hover:underline">
+            <a href="/support" className="text-brand-red hover:underline">
               {t('supportTeam')}
             </a>
           </p>
@@ -118,7 +118,7 @@ export default function PaymentSuccessPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-gray-50 pt-24 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-[#E31837] border-t-transparent rounded-full" />
+        <div className="animate-spin w-8 h-8 border-2 border-brand-red border-t-transparent rounded-full" />
       </div>
     }>
       <SuccessContent />

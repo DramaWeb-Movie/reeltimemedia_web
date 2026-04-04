@@ -168,7 +168,7 @@ export default function WatchAccessGate({
   if (loading) {
     return (
       <div className="rounded-2xl overflow-hidden bg-gray-100 border border-gray-200 shadow-sm flex items-center justify-center aspect-video">
-        <div className="animate-pulse w-10 h-10 border-2 border-[#E31837] border-t-transparent rounded-full" />
+        <div className="animate-pulse w-10 h-10 border-2 border-brand-red border-t-transparent rounded-full" />
       </div>
     );
   }
@@ -178,8 +178,8 @@ export default function WatchAccessGate({
 
     return (
       <div className="rounded-2xl overflow-hidden bg-white border border-gray-200 shadow-sm flex flex-col items-center justify-center aspect-video px-6 text-center">
-        <div className="flex items-center justify-center w-16 h-16 rounded-full bg-[#E31837]/10 mb-4">
-          <FiLock className="text-[#E31837] text-2xl" />
+        <div className="flex items-center justify-center w-16 h-16 rounded-full bg-brand-red/10 mb-4">
+          <FiLock className="text-brand-red text-2xl" />
         </div>
         <h2 className="text-xl font-bold text-gray-900 mb-2">
           {isMovie ? t('unlockMovie') : t('subscribeToWatch')}

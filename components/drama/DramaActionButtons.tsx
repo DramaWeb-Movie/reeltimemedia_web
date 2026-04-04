@@ -27,7 +27,7 @@ const STYLES = {
   compact: {
     primary: 'gradient-btn block w-full text-center py-3 rounded-xl font-semibold text-white',
     secondary:
-      'block w-full text-center py-3 rounded-xl font-semibold border-2 border-[#E31837] text-[#E31837] hover:bg-[#E31837]/5 transition-colors',
+      'block w-full text-center py-3 rounded-xl font-semibold border-2 border-brand-red text-brand-red hover:bg-brand-red/5 transition-colors',
   },
 } as const;
 

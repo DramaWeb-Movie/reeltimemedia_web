@@ -66,17 +66,17 @@ export default async function PricingPage() {
                 <div
                   key={plan.id}
                   className={`bg-white rounded-2xl overflow-hidden flex flex-col relative shadow-sm ${
-                    isPopular ? 'border-2 border-[#E31837]/50' : 'border border-gray-200'
+                    isPopular ? 'border-2 border-brand-red/50' : 'border border-gray-200'
                   }`}
                 >
                   {isPopular && (
-                    <div className="absolute top-0 right-0 bg-[#E31837] text-white text-xs font-semibold px-4 py-1.5 rounded-bl-xl">
+                    <div className="absolute top-0 right-0 bg-brand-red text-white text-xs font-semibold px-4 py-1.5 rounded-bl-xl">
                       {t('popular')}
                     </div>
                   )}
                   <div className="p-6 border-b border-gray-100">
-                    <div className="w-12 h-12 rounded-xl bg-[#E31837]/10 flex items-center justify-center mb-4">
-                      <FiPlay className="text-2xl text-[#E31837]" />
+                    <div className="w-12 h-12 rounded-xl bg-brand-red/10 flex items-center justify-center mb-4">
+                      <FiPlay className="text-2xl text-brand-red" />
                     </div>
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">
                       {plan.name}{' '}
@@ -88,7 +88,7 @@ export default async function PricingPage() {
                   </div>
                   <div className="p-6 flex-1 flex flex-col">
                     <div className="flex items-baseline gap-1 mb-1">
-                      <span className="text-4xl font-bold text-[#E31837]">
+                      <span className="text-4xl font-bold text-brand-red">
                         {plan.currency === 'USD' ? '$' : plan.currency}
                         {price.toFixed(2)}
                       </span>
@@ -99,13 +99,13 @@ export default async function PricingPage() {
                     </p>
                     <ul className="space-y-3 mb-8">
                       <li className="flex items-center gap-2 text-gray-600 text-sm">
-                        <FiCheck className="text-[#E31837] shrink-0" /> {t('allSeries')}
+                        <FiCheck className="text-brand-red shrink-0" /> {t('allSeries')}
                       </li>
                       <li className="flex items-center gap-2 text-gray-600 text-sm">
-                        <FiCheck className="text-[#E31837] shrink-0" /> {t('newEpisodes')}
+                        <FiCheck className="text-brand-red shrink-0" /> {t('newEpisodes')}
                       </li>
                       <li className="flex items-center gap-2 text-gray-600 text-sm">
-                        <FiCheck className="text-[#E31837] shrink-0" /> {t('cancelAnytime')}
+                        <FiCheck className="text-brand-red shrink-0" /> {t('cancelAnytime')}
                       </li>
                     </ul>
                     <Link href={paymentUrl} className="mt-auto">

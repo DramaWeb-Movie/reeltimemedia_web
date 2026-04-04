@@ -27,7 +27,7 @@ export default function DramaCard({ drama, index }: DramaCardProps) {
 
           {/* Rank Badge (for most-watched) */}
           {index !== undefined && (
-            <div className="absolute top-3 left-3 w-8 h-8 rounded-lg bg-gradient-to-br from-[#E31837] to-[#E31837] flex items-center justify-center">
+            <div className="absolute top-3 left-3 w-8 h-8 rounded-lg bg-gradient-to-br from-brand-red to-brand-red flex items-center justify-center">
               <span className="text-white text-sm font-bold">{index + 1}</span>
             </div>
           )}
@@ -35,20 +35,20 @@ export default function DramaCard({ drama, index }: DramaCardProps) {
           {/* Rating Badge — only when DB provides a numeric score */}
           {drama.rating != null && (
             <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-lg text-sm font-bold flex items-center gap-1 shadow-sm">
-              <FaStar className="text-[#FFB800]" />
+              <FaStar className="text-accent-gold" />
               <span className="text-gray-900">{drama.rating.toFixed(1)}</span>
             </div>
           )}
 
           {/* Play Button on Hover */}
           <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
-            <div className="w-14 h-14 rounded-full bg-[#E31837] flex items-center justify-center transform scale-75 group-hover:scale-100 transition-transform duration-300 shadow-lg">
+            <div className="w-14 h-14 rounded-full bg-brand-red flex items-center justify-center transform scale-75 group-hover:scale-100 transition-transform duration-300 shadow-lg">
               <FiPlay className="text-white text-xl ml-1" />
             </div>
           </div>
         </div>
         <div className="p-4">
-          <h3 className="font-bold text-lg mb-1 line-clamp-1 text-gray-900 group-hover:text-[#E31837] transition-colors">{drama.title}</h3>
+          <h3 className="font-bold text-lg mb-1 line-clamp-1 text-gray-900 group-hover:text-brand-red transition-colors">{drama.title}</h3>
           {drama.titleKh && (
             <p className="text-sm text-gray-500 mb-2 line-clamp-1" lang="km">{drama.titleKh}</p>
           )}
@@ -57,7 +57,7 @@ export default function DramaCard({ drama, index }: DramaCardProps) {
             {drama.genres.slice(0, 2).map((genre) => (
               <span
                 key={genre}
-                className="text-xs bg-[#E31837]/10 text-[#E31837] px-2.5 py-1 rounded-full font-medium"
+                className="text-xs bg-brand-red/10 text-brand-red px-2.5 py-1 rounded-full font-medium"
               >
                 {genre}
               </span>

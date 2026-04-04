@@ -13,8 +13,8 @@ export default function AuthLayout({ children, title, subtitle }: AuthLayoutProp
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
       {/* Subtle background accent */}
       <div className="absolute inset-0 opacity-10">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#E31837] rounded-full blur-[150px]" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#E31837] rounded-full blur-[150px]" />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-brand-red rounded-full blur-[150px]" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-brand-red rounded-full blur-[150px]" />
       </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">

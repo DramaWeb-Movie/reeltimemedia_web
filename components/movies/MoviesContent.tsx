@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { useDebounce } from '@/hooks/useDebounce';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import DramaCardCompact from '@/components/drama/DramaCardCompact';
 import Pagination from '@/components/shared/Pagination';
@@ -25,6 +26,7 @@ export default function MoviesContent({
   const t = useTranslations('movies');
   const tb = useTranslations('browse');
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedQuery = useDebounce(searchQuery, 300);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -32,7 +34,7 @@ export default function MoviesContent({
   const purchasedSet = useMemo(() => new Set(purchasedMovieIds), [purchasedMovieIds]);
 
   const filtered = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = debouncedQuery.trim().toLowerCase();
     if (!q) return initialItems;
 
     return initialItems.filter((d) => {
@@ -40,7 +42,7 @@ export default function MoviesContent({
       const titleKh = d.titleKh?.toLowerCase() ?? '';
       return titleEn.includes(q) || titleKh.includes(q);
     });
-  }, [initialItems, searchQuery]);
+  }, [initialItems, debouncedQuery]);
 
   const handlePageChange = (page: number) => {
     const sp = new URLSearchParams(searchParams?.toString());
@@ -54,8 +56,8 @@ export default function MoviesContent({
       <div className="container mx-auto px-4 md:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 flex items-center gap-3 mb-1">
-            <span className="w-10 h-10 rounded-xl bg-[#E31837]/10 flex items-center justify-center">
-              <FiFilm className="text-[#E31837] text-xl" />
+            <span className="w-10 h-10 rounded-xl bg-brand-red/10 flex items-center justify-center">
+              <FiFilm className="text-brand-red text-xl" />
             </span>
             {t('title')}
           </h1>
@@ -71,7 +73,7 @@ export default function MoviesContent({
               setSearchQuery(e.target.value);
             }}
             placeholder={tb('searchPlaceholder')}
-            className="w-full bg-white border border-gray-200 focus:border-[#E31837]/50 rounded-xl pl-11 pr-10 py-3 text-gray-900 placeholder-gray-400 outline-none transition-colors text-sm shadow-sm"
+            className="w-full bg-white border border-gray-200 focus:border-brand-red/50 rounded-xl pl-11 pr-10 py-3 text-gray-900 placeholder-gray-400 outline-none transition-colors text-sm shadow-sm"
           />
           {searchQuery && (
             <button
@@ -83,13 +85,13 @@ export default function MoviesContent({
           )}
         </div>
 
-        {searchQuery && (
+        {debouncedQuery && (
           <p className="text-gray-400 text-sm mb-6">
             {filtered.length === 0
               ? tb('noResultsFound')
               : filtered.length === 1
-                ? tb('results', { count: filtered.length, query: searchQuery })
-                : tb('resultsPlural', { count: filtered.length, query: searchQuery })}
+                ? tb('results', { count: filtered.length, query: debouncedQuery })
+                : tb('resultsPlural', { count: filtered.length, query: debouncedQuery })}
           </p>
         )}
 
@@ -117,7 +119,7 @@ export default function MoviesContent({
           </div>
         )}
 
-        {!searchQuery && filtered.length > 0 && totalPages > 1 && (
+        {!debouncedQuery && filtered.length > 0 && totalPages > 1 && (
           <div className="mt-12">
             <Pagination
               currentPage={currentPage}

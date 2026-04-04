@@ -18,14 +18,14 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         <input
           ref={ref}
           className={cn(
-            'w-full px-4 py-3.5 bg-white border rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#E31837] focus:border-transparent transition-all',
-            error ? 'border-[#E31837]' : 'border-gray-300',
+            'w-full px-4 py-3.5 bg-white border rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent transition-all',
+            error ? 'border-brand-red' : 'border-gray-300',
             className
           )}
           {...props}
         />
         {error && (
-          <p className="mt-2 text-sm text-[#E31837]">{error}</p>
+          <p className="mt-2 text-sm text-brand-red">{error}</p>
         )}
       </div>
     );

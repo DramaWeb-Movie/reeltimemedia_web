@@ -19,7 +19,7 @@ export default function Button({
   const variants = {
     primary: 'gradient-btn text-white shadow-lg',
     secondary: 'bg-[#1A1A1A] hover:bg-[#252525] text-white border border-[#333333]',
-    outline: 'border-2 border-[#E31837] text-[#E31837] hover:bg-[#E31837] hover:text-white',
+    outline: 'border-2 border-brand-red text-brand-red hover:bg-brand-red hover:text-white',
     ghost: 'hover:bg-white/10 text-white',
   };
 

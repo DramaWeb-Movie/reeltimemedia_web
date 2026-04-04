@@ -6,7 +6,8 @@ import { createPortal } from 'react-dom';
 import { FiBell, FiUser, FiMenu, FiX, FiGlobe, FiChevronDown, FiPlay } from 'react-icons/fi';
 import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { isMainNavActive } from '@/components/layout/mainNav';
 import type { User } from '@supabase/supabase-js';
 
 const LANGUAGES = [
@@ -25,30 +26,30 @@ export default function HeaderActions({ initialUser, mobileRootId = MOBILE_ROOT_
   const t = useTranslations('nav');
   const tAuth = useTranslations('auth');
   const router = useRouter();
+  const pathname = usePathname();
 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [currentLocale, setCurrentLocale] = useState('km');
-  const [isLanguageOpen, setIsLanguageOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(!!initialUser);
-  const [mobileEl, setMobileEl] = useState<HTMLElement | null>(null);
-
-  useEffect(() => {
-    setMobileEl(typeof document !== 'undefined' ? document.getElementById(mobileRootId) : null);
-  }, [mobileRootId]);
-
-  useEffect(() => {
+  const [currentLocale, setCurrentLocale] = useState(() => {
+    if (typeof document === 'undefined') return 'km';
     const match = document.cookie.match(/(?:^|;\s*)NEXT_LOCALE=([^;]+)/);
-    setCurrentLocale(match ? match[1] : 'km');
-  }, []);
+    return match ? match[1] : 'km';
+  });
+  const [isLanguageOpen, setIsLanguageOpen] = useState(false);
+  const [sessionLoggedIn, setSessionLoggedIn] = useState<boolean | null>(null);
+
+  const mobileEl = typeof document !== 'undefined' ? document.getElementById(mobileRootId) : null;
+
+  const isLoggedIn = sessionLoggedIn ?? !!initialUser;
 
   useEffect(() => {
-    setIsLoggedIn(!!initialUser);
     const supabase = createClient();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsLoggedIn(!!session?.user);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSessionLoggedIn(!!session?.user);
     });
     return () => subscription.unsubscribe();
-  }, [initialUser]);
+  }, []);
 
   const switchLanguage = useCallback((code: string) => {
     document.cookie = `NEXT_LOCALE=${code}; path=/; max-age=${60 * 60 * 24 * 365}`;
@@ -81,7 +82,7 @@ export default function HeaderActions({ initialUser, mobileRootId = MOBILE_ROOT_
                     key={lang.code}
                     onClick={() => switchLanguage(lang.code)}
                     className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors ${
-                      currentLocale === lang.code ? 'text-[#E31837] font-medium bg-red-50' : 'text-gray-600'
+                      currentLocale === lang.code ? 'text-brand-red font-medium bg-red-50' : 'text-gray-600'
                     }`}
                   >
                     {lang.label}
@@ -98,11 +99,11 @@ export default function HeaderActions({ initialUser, mobileRootId = MOBILE_ROOT_
                 aria-label={t('notifications')}
               >
                 <FiBell className="text-xl" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#E31837] rounded-full" />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-brand-red rounded-full" />
               </button>
               <Link
                 href="/profile"
-                className="w-10 h-10 rounded-full bg-gradient-to-br from-[#E31837] to-[#E31837] flex items-center justify-center text-white font-semibold hover:opacity-90 transition-opacity"
+                className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-red to-brand-red flex items-center justify-center text-white font-semibold hover:opacity-90 transition-opacity"
               >
                 <FiUser className="text-lg" />
               </Link>
@@ -139,19 +140,64 @@ export default function HeaderActions({ initialUser, mobileRootId = MOBILE_ROOT_
         isMenuOpen &&
         createPortal(
           <div className="md:hidden mt-4 pb-4 space-y-2 border-t border-gray-200 pt-4 animate-in slide-in-from-top duration-200 bg-white/95 backdrop-blur-lg rounded-2xl px-2">
-            <Link href="/home" className="flex items-center gap-3 px-4 py-3.5 text-base font-medium text-gray-900 hover:bg-gray-100 rounded-xl transition-all" onClick={() => setIsMenuOpen(false)}>
+            <Link
+              href="/home"
+              aria-current={isMainNavActive(pathname, '/home') ? 'page' : undefined}
+              className={`flex items-center gap-3 px-4 py-3.5 text-base font-medium rounded-xl transition-all ${
+                isMainNavActive(pathname, '/home')
+                  ? 'text-brand-red bg-red-50/80 font-semibold ring-1 ring-red-100'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+              onClick={() => setIsMenuOpen(false)}
+            >
               {t('home')}
             </Link>
-            <Link href="/browse" className="flex items-center gap-3 px-4 py-3.5 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all" onClick={() => setIsMenuOpen(false)}>
+            <Link
+              href="/browse"
+              aria-current={isMainNavActive(pathname, '/browse') ? 'page' : undefined}
+              className={`flex items-center gap-3 px-4 py-3.5 text-base font-medium rounded-xl transition-all ${
+                isMainNavActive(pathname, '/browse')
+                  ? 'text-brand-red bg-red-50/80 font-semibold ring-1 ring-red-100'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+              onClick={() => setIsMenuOpen(false)}
+            >
               {t('browse')}
             </Link>
-            <Link href="/movies" className="flex items-center gap-3 px-4 py-3.5 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all" onClick={() => setIsMenuOpen(false)}>
+            <Link
+              href="/movies"
+              aria-current={isMainNavActive(pathname, '/movies') ? 'page' : undefined}
+              className={`flex items-center gap-3 px-4 py-3.5 text-base font-medium rounded-xl transition-all ${
+                isMainNavActive(pathname, '/movies')
+                  ? 'text-brand-red bg-red-50/80 font-semibold ring-1 ring-red-100'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+              onClick={() => setIsMenuOpen(false)}
+            >
               {t('movies')}
             </Link>
-            <Link href="/series" className="flex items-center gap-3 px-4 py-3.5 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all" onClick={() => setIsMenuOpen(false)}>
+            <Link
+              href="/series"
+              aria-current={isMainNavActive(pathname, '/series') ? 'page' : undefined}
+              className={`flex items-center gap-3 px-4 py-3.5 text-base font-medium rounded-xl transition-all ${
+                isMainNavActive(pathname, '/series')
+                  ? 'text-brand-red bg-red-50/80 font-semibold ring-1 ring-red-100'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+              onClick={() => setIsMenuOpen(false)}
+            >
               {t('series')}
             </Link>
-            <Link href="/search" className="flex items-center gap-3 px-4 py-3.5 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-xl transition-all" onClick={() => setIsMenuOpen(false)}>
+            <Link
+              href="/search"
+              aria-current={pathname === '/search' || pathname.startsWith('/search/') ? 'page' : undefined}
+              className={`flex items-center gap-3 px-4 py-3.5 text-base font-medium rounded-xl transition-all ${
+                pathname === '/search' || pathname.startsWith('/search/')
+                  ? 'text-brand-red bg-red-50/80 font-semibold ring-1 ring-red-100'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+              }`}
+              onClick={() => setIsMenuOpen(false)}
+            >
               <FiPlay className="text-sm" />
               {t('app')}
             </Link>
@@ -160,7 +206,7 @@ export default function HeaderActions({ initialUser, mobileRootId = MOBILE_ROOT_
               <select
                 value={currentLocale}
                 onChange={(e) => switchLanguage(e.target.value)}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-[#E31837] transition-colors"
+                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:border-brand-red transition-colors"
               >
                 {LANGUAGES.map((lang) => (
                   <option key={lang.code} value={lang.code} className="bg-[#1A1A1A]">

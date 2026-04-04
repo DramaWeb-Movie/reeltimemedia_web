@@ -8,23 +8,20 @@ import {
   buildFailUrl,
   BarayPaymentPayload,
 } from '@/lib/baray';
-import { checkRateLimit } from '@/lib/logging/requestLog';
+import { enforceRateLimit } from '@/lib/api/rateLimit';
 
 export async function POST(request: NextRequest) {
-  const rate = await checkRateLimit(request, {
+  const blocked = await enforceRateLimit(
+    request,
+    {
     namespace: 'api:payments:baray:create',
     max: 12,
     windowMs: 60 * 1000,
     blockMs: 10 * 60 * 1000,
-  });
-  if (!rate.allowed) {
-    const headers = new Headers();
-    if (rate.retryAfterSeconds) headers.set('Retry-After', String(rate.retryAfterSeconds));
-    return new NextResponse(
-      JSON.stringify({ success: false, error: { message: 'Too many requests' } }),
-      { status: rate.status, headers }
-    );
-  }
+    },
+    { type: 'json', body: { success: false, error: { message: 'Too many requests' } } }
+  );
+  if (blocked) return blocked;
 
   try {
     const body = await request.json();

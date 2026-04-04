@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { checkRateLimit } from '@/lib/logging/requestLog';
+import { enforceRateLimit } from '@/lib/api/rateLimit';
 import { fetchWithBudget } from '@/lib/utils/fetchWithBudget';
 import { isWatchRequestFromOurSite } from '@/lib/watch/requestOrigin';
 import { getVideoUrlForPlayback } from '@/lib/watch/playbackAccess';
@@ -12,17 +12,17 @@ import { verifyPlaybackToken } from '@/lib/watch/playbackToken';
  * Supports Range requests for video seeking.
  */
 export async function GET(request: NextRequest) {
-  const rate = await checkRateLimit(request, {
+  const blocked = await enforceRateLimit(
+    request,
+    {
     namespace: 'api:watch:stream',
     max: 120,
     windowMs: 60 * 1000,
     blockMs: 10 * 60 * 1000,
-  });
-  if (!rate.allowed) {
-    const headers = new Headers();
-    if (rate.retryAfterSeconds) headers.set('Retry-After', String(rate.retryAfterSeconds));
-    return new Response('Too many requests', { status: rate.status, headers });
-  }
+    },
+    { type: 'text', body: 'Too many requests' }
+  );
+  if (blocked) return blocked;
 
   if (!isWatchRequestFromOurSite(request)) {
     const home = process.env.NEXT_PUBLIC_APP_URL?.trim()?.replace(/\/$/, '') || request.nextUrl.origin;
