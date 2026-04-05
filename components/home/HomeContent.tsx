@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import Link from 'next/link';
 import { FiTrendingUp, FiCheckCircle, FiDollarSign } from 'react-icons/fi';
 import { useTranslations } from 'next-intl';
@@ -14,14 +14,14 @@ type HomeContentProps = {
   purchasedMovieIds: string[];
 };
 
-/** Same card as Movies/Series/Browse, with Watch or price button */
-function CardSlot({
-  drama,
-  purchasedSet,
-}: {
+type CardSlotProps = {
   drama: FeaturedMovie;
   purchasedSet: Set<string>;
-}) {
+  imagePriority?: boolean;
+};
+
+/** Same card as Movies/Series/Browse, with Watch or price button */
+const CardSlot = memo(function CardSlot({ drama, purchasedSet, imagePriority }: CardSlotProps) {
   const kind = resolveContentKind(drama);
   const isSeries = kind === 'series';
   const isMovie = kind === 'movie';
@@ -33,6 +33,7 @@ function CardSlot({
         titleKh={drama.titleKh}
         episodes={drama.episodes}
         image={drama.image}
+        priority={imagePriority}
         showWatchButton={isSeries}
         showMovieButton={isMovie}
         hasPurchased={isMovie ? purchasedSet.has(drama.id) : undefined}
@@ -40,27 +41,39 @@ function CardSlot({
       />
     </div>
   );
-}
+});
 
 export default function HomeContent({ featuredItems, purchasedMovieIds }: HomeContentProps) {
   const t = useTranslations('home');
   const purchasedSet = useMemo(() => new Set(purchasedMovieIds), [purchasedMovieIds]);
 
-  const SECTION_SIZE = 6;
-  const total = featuredItems.length;
+  const { mostWatchedDramas, mustSeeDramas, trendingDramas } = useMemo(() => {
+    const SECTION_SIZE = 6;
+    const total = featuredItems.length;
+    // Use non-overlapping windows when the catalogue is large enough.
+    // Fall back to the first items when there aren't enough unique titles
+    // so sections are never empty.
+    const mostWatched = featuredItems.slice(0, SECTION_SIZE);
+    const mustSee =
+      total > SECTION_SIZE
+        ? featuredItems.slice(SECTION_SIZE, SECTION_SIZE * 2)
+        : mostWatched;
+    const trending =
+      total > SECTION_SIZE * 2
+        ? featuredItems.slice(SECTION_SIZE * 2, SECTION_SIZE * 3)
+        : mostWatched;
+    return { mostWatchedDramas: mostWatched, mustSeeDramas: mustSee, trendingDramas: trending };
+  }, [featuredItems]);
 
-  // Use non-overlapping windows when the catalogue is large enough.
-  // Fall back to the first items when there aren't enough unique titles
-  // so sections are never empty.
-  const mostWatchedDramas = featuredItems.slice(0, SECTION_SIZE);
-  const mustSeeDramas =
-    total > SECTION_SIZE
-      ? featuredItems.slice(SECTION_SIZE, SECTION_SIZE * 2)
-      : mostWatchedDramas;
-  const trendingDramas =
-    total > SECTION_SIZE * 2
-      ? featuredItems.slice(SECTION_SIZE * 2, SECTION_SIZE * 3)
-      : mostWatchedDramas;
+  const trendingNowLabel = t('trendingNow');
+  const trendingSectionTitle = useMemo(
+    () => (
+      <span className="flex items-center gap-2">
+        {trendingNowLabel} <FiTrendingUp className="text-brand-red" />
+      </span>
+    ),
+    [trendingNowLabel],
+  );
 
   if (featuredItems.length === 0) {
     return (
@@ -134,8 +147,13 @@ export default function HomeContent({ featuredItems, purchasedMovieIds }: HomeCo
           />
           <div className="overflow-x-auto scrollbar-hide -mx-4 px-4">
             <div className="flex gap-4 md:gap-6 pb-4">
-              {mostWatchedDramas.map((drama) => (
-                <CardSlot key={drama.id} drama={drama} purchasedSet={purchasedSet} />
+              {mostWatchedDramas.map((drama, index) => (
+                <CardSlot
+                  key={drama.id}
+                  drama={drama}
+                  purchasedSet={purchasedSet}
+                  imagePriority={index === 0}
+                />
               ))}
             </div>
           </div>
@@ -165,7 +183,7 @@ export default function HomeContent({ featuredItems, purchasedMovieIds }: HomeCo
       <section className="py-12 md:py-16 bg-gray-50">
         <div className="container mx-auto px-4 md:px-8">
           <SectionHeader
-            title={<span className="flex items-center gap-2">{t('trendingNow')} <FiTrendingUp className="text-brand-red" /></span>}
+            title={trendingSectionTitle}
             viewAllHref="/browse?filter=trending"
             viewAllLabel={t('viewAll')}
           />

@@ -218,7 +218,12 @@
     "youMayAlsoLike": "អ្នកប្រហែលចូលចិត្ត",
     "handpickedForYou": "ជ្រើសរើសតាមអ្វីដែលអ្នកកំពុងមើល",
     "sessionFailed": "មិនអាចចាប់ផ្តើមចាក់បានទេ។ សម័យរបស់អ្នកអាចផុតកំណត់ហើយ។",
-    "resumePlayback": "បន្តចាក់"
+    "resumePlayback": "បន្តចាក់",
+    "metadataNotFoundTitle": "រកមិនឃើញមាតិកា | ReelTime Media",
+    "metadataNotFoundDesc": "ចំណងជើងនេះមិនមាន ឬត្រូវបានដកចេញ។",
+    "metadataDefaultDesc": "មើល {title} នៅលើ ReelTime Media។",
+    "metadataMovieTitle": "មើល {title} | ReelTime Media",
+    "metadataEpisodeTitle": "{title} — វគ្គ {num} | ReelTime Media"
   },
   "drama": {
     "free": "ឥតគិតថ្លៃ",

@@ -2,18 +2,29 @@ import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { cache, type ReactNode } from 'react';
 import { FaStar } from 'react-icons/fa';
 import { FiPlay, FiCalendar, FiFilm, FiUsers } from 'react-icons/fi';
-import { cache } from 'react';
+import { getTranslations } from 'next-intl/server';
+import DramaActionButtons from '@/components/drama/DramaActionButtons';
 import { getMovieById, hasPurchasedContent } from '@/lib/movies';
+import { getYoutubeEmbedUrl } from '@/lib/youtube';
 
 // Deduplicate within a single render pass (generateMetadata + page component)
 const getMovie = cache(getMovieById);
-import { getYoutubeEmbedUrl } from '@/lib/youtube';
-import DramaActionButtons from '@/components/drama/DramaActionButtons';
-import { getTranslations } from 'next-intl/server';
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? '';
+
+type DramaPageParams = { params: Promise<{ id: string }> };
+
+function SectionHeading({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 mb-4">
+      <div className="w-1 h-8 bg-brand-red rounded-full" />
+      <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">{children}</h2>
+    </div>
+  );
+}
 
 function absoluteUrl(url: string | undefined | null): string | undefined {
   if (!url) return undefined;
@@ -25,11 +36,7 @@ function absoluteUrl(url: string | undefined | null): string | undefined {
   }
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}): Promise<Metadata> {
+export async function generateMetadata({ params }: DramaPageParams): Promise<Metadata> {
   const { id } = await params;
   const drama = await getMovie(id);
   const t = await getTranslations('drama');
@@ -75,11 +82,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function DramaDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function DramaDetailPage({ params }: DramaPageParams) {
   const { id } = await params;
   const drama = await getMovie(id);
   const t = await getTranslations('drama');
@@ -95,6 +98,13 @@ export default async function DramaDetailPage({
   const hasPurchasedMovie = isPaidMovie
     ? await hasPurchasedContent(id, 'movie')
     : false;
+
+  const actionButtonProps = {
+    id,
+    drama,
+    isFreeMovie,
+    hasPurchasedMovie,
+  };
 
   const heroImage = drama.bannerUrl || drama.posterUrl;
 
@@ -165,13 +175,7 @@ export default async function DramaDetailPage({
             </div>
             {/* Action buttons in hero (desktop/tablet only) */}
             <div className="mt-5 hidden md:flex flex-wrap gap-3">
-              <DramaActionButtons
-                id={id}
-                drama={drama}
-                isFreeMovie={isFreeMovie}
-                hasPurchasedMovie={hasPurchasedMovie}
-                variant="hero"
-              />
+              <DramaActionButtons {...actionButtonProps} variant="hero" />
             </div>
           </div>
         </div>
@@ -185,12 +189,7 @@ export default async function DramaDetailPage({
             <Image src={drama.posterUrl} alt={drama.title} fill className="object-cover" sizes="200px" />
           </div>
           <div className="mt-4 space-y-2">
-            <DramaActionButtons
-              id={id}
-              drama={drama}
-              isFreeMovie={isFreeMovie}
-              hasPurchasedMovie={hasPurchasedMovie}
-            />
+            <DramaActionButtons {...actionButtonProps} />
           </div>
         </div>
 
@@ -203,12 +202,7 @@ export default async function DramaDetailPage({
                   <Image src={drama.posterUrl} alt={drama.title} fill className="object-cover" sizes="320px" />
                 </div>
                 <div className="p-4 space-y-3">
-                  <DramaActionButtons
-                    id={id}
-                    drama={drama}
-                    isFreeMovie={isFreeMovie}
-                    hasPurchasedMovie={hasPurchasedMovie}
-                  />
+                  <DramaActionButtons {...actionButtonProps} />
                 </div>
               </div>
             </div>
@@ -219,17 +213,15 @@ export default async function DramaDetailPage({
             {/* Trailer */}
             {trailerEmbedUrl && (
               <section>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-1 h-8 bg-brand-red rounded-full" />
-                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                    <FiPlay className="text-brand-red" /> {t('trailer')}
-                  </h2>
-                </div>
+                <SectionHeading>
+                  <FiPlay className="text-brand-red" /> {t('trailer')}
+                </SectionHeading>
                 <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                   <div className="relative w-full aspect-video bg-black">
                     <iframe
                       src={`${trailerEmbedUrl}?rel=0`}
                       title={`${drama.title} trailer`}
+                      loading="lazy"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                       allowFullScreen
                       className="absolute inset-0 w-full h-full"
@@ -241,10 +233,7 @@ export default async function DramaDetailPage({
 
             {/* Overview */}
             <section>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-1 h-8 bg-brand-red rounded-full" />
-                <h2 className="text-xl font-bold text-gray-900">{t('overview')}</h2>
-              </div>
+              <SectionHeading>{t('overview')}</SectionHeading>
               <div className="bg-white rounded-xl p-5 md:p-6 border border-gray-200 shadow-sm">
                 <p className="text-gray-600 text-sm md:text-base leading-relaxed">{drama.description}</p>
               </div>
@@ -253,12 +242,9 @@ export default async function DramaDetailPage({
             {/* Episodes */}
             {drama.contentType === 'series' && (
               <section>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-1 h-8 bg-brand-red rounded-full" />
-                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                    <FiFilm className="text-brand-red" /> {t('episodes')}
-                  </h2>
-                </div>
+                <SectionHeading>
+                  <FiFilm className="text-brand-red" /> {t('episodes')}
+                </SectionHeading>
                 <div className="bg-white rounded-xl p-5 md:p-6 border border-gray-200 shadow-sm">
                   <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2">
                     {Array.from({ length: drama.totalEpisodes }, (_, i) => (
@@ -277,12 +263,9 @@ export default async function DramaDetailPage({
 
             {/* Cast */}
             <section>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-1 h-8 bg-brand-red rounded-full" />
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <FiUsers className="text-brand-red" /> {t('cast')}
-                </h2>
-              </div>
+              <SectionHeading>
+                <FiUsers className="text-brand-red" /> {t('cast')}
+              </SectionHeading>
               <div className="bg-white rounded-xl p-5 md:p-6 border border-gray-200 shadow-sm">
                 {drama.cast.length > 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">

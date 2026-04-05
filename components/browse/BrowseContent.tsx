@@ -40,6 +40,8 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
 
   const filtered = useMemo(() => {
     const q = debouncedQuery.trim().toLowerCase();
+    const genreNeedle =
+      genreFilter === 'all' ? null : genreFilter.trim().toLowerCase();
 
     return initialDramas.filter((d) => {
       // Text search (Khmer + English)
@@ -68,9 +70,9 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
       }
 
       // Genre filter
-      if (genreFilter !== 'all') {
+      if (genreNeedle !== null) {
         const genres = d.genres ?? [];
-        if (!genres.some((g) => g.trim().toLowerCase() === genreFilter.toLowerCase())) {
+        if (!genres.some((g) => g.trim().toLowerCase() === genreNeedle)) {
           return false;
         }
       }
@@ -79,8 +81,18 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
     });
   }, [initialDramas, debouncedQuery, freeFilter, typeFilter, genreFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const paginatedDramas = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)),
+    [filtered.length],
+  );
+
+  const safePage = Math.min(currentPage, totalPages);
+
+  const paginatedDramas = useMemo(
+    () =>
+      filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filtered, safePage],
+  );
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -111,7 +123,11 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
           />
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery('')}
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                setCurrentPage(1);
+              }}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors"
             >
               <FiX className="text-lg" />
@@ -225,7 +241,7 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
         {filtered.length > 0 && totalPages > 1 && (
           <div className="mt-12">
             <Pagination
-              currentPage={currentPage}
+              currentPage={safePage}
               totalPages={totalPages}
               onPageChange={handlePageChange}
             />

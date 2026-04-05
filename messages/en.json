@@ -218,7 +218,12 @@
     "youMayAlsoLike": "You may also like",
     "handpickedForYou": "Handpicked based on what you're watching",
     "sessionFailed": "We could not start playback. Your session may have expired.",
-    "resumePlayback": "Resume"
+    "resumePlayback": "Resume",
+    "metadataNotFoundTitle": "Content not found | ReelTime Media",
+    "metadataNotFoundDesc": "This title is unavailable or was removed.",
+    "metadataDefaultDesc": "Watch {title} on ReelTime Media.",
+    "metadataMovieTitle": "Watch {title} | ReelTime Media",
+    "metadataEpisodeTitle": "{title} — Episode {num} | ReelTime Media"
   },
   "drama": {
     "free": "Free",

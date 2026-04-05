@@ -1,5 +1,7 @@
-import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 import Link from 'next/link';
+import { notFound, redirect } from 'next/navigation';
+import { Suspense, cache } from 'react';
 import {
   FiArrowLeft,
   FiFilm,
@@ -8,25 +10,114 @@ import {
   FiInfo,
   FiCalendar,
 } from 'react-icons/fi';
-import DramaCardCompact from '@/components/drama/DramaCardCompact';
-import { DRAMA_CARD_GRID } from '@/lib/drama-grid';
-import { getMovieById, getRecommendedMovies } from '@/lib/movies';
+import WatchRecommendations, {
+  WatchRecommendationsSkeleton,
+} from '@/components/watch/WatchRecommendations';
 import WatchAccessGate from '@/components/watch/WatchAccessGate';
+import { getMovieById } from '@/lib/movies';
+import {
+  isValidDramaId,
+  parseWatchEpisodeParam,
+  shouldNormalizeWatchSearchParams,
+  watchPagePath,
+} from '@/lib/watch-route';
 import { getTranslations } from 'next-intl/server';
 
-export default async function WatchPage({
-  params,
-  searchParams,
-}: {
+const getMovie = cache(getMovieById);
+
+const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? '';
+
+type WatchPageProps = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ ep?: string }>;
-}) {
+};
+
+function absoluteUrl(pathOrUrl: string | undefined | null): string | undefined {
+  if (!pathOrUrl) return undefined;
+  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+  try {
+    return new URL(pathOrUrl, SITE_URL).toString();
+  } catch {
+    return undefined;
+  }
+}
+
+export async function generateMetadata({
+  params,
+  searchParams,
+}: WatchPageProps): Promise<Metadata> {
+  const { id } = await params;
+  const { ep: epRaw } = await searchParams;
+  const t = await getTranslations('watch');
+
+  if (!isValidDramaId(id)) {
+    return {
+      title: t('metadataNotFoundTitle'),
+      description: t('metadataNotFoundDesc'),
+    };
+  }
+
+  const drama = await getMovie(id);
+  if (!drama) {
+    return {
+      title: t('metadataNotFoundTitle'),
+      description: t('metadataNotFoundDesc'),
+    };
+  }
+
+  const isSinglePart = drama.contentType === 'movie' || drama.totalEpisodes === 1;
+  const episodeNum = parseWatchEpisodeParam(epRaw, {
+    isSinglePart,
+    totalEpisodes: drama.totalEpisodes,
+  });
+
+  const pageTitle = isSinglePart
+    ? t('metadataMovieTitle', { title: drama.title })
+    : t('metadataEpisodeTitle', { title: drama.title, num: episodeNum });
+
+  const description =
+    drama.description?.trim() || t('metadataDefaultDesc', { title: drama.title });
+
+  const path = watchPagePath(id, episodeNum, isSinglePart);
+  const url = absoluteUrl(path) ?? path;
+  const image = absoluteUrl(drama.posterUrl || drama.bannerUrl);
+
+  return {
+    title: pageTitle,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'video.other',
+      url,
+      title: pageTitle,
+      description,
+      siteName: 'ReelTime Media',
+      images: image
+        ? [
+            {
+              url: image,
+              alt: drama.title,
+            },
+          ]
+        : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: pageTitle,
+      description,
+      images: image ? [image] : undefined,
+    },
+  };
+}
+
+export default async function WatchPage({ params, searchParams }: WatchPageProps) {
   const t = await getTranslations('watch');
   const { id } = await params;
-  const { ep } = await searchParams;
-  const episodeNum = ep ? Math.max(1, parseInt(ep, 10) || 1) : 1;
+  const { ep: epRaw } = await searchParams;
 
-  const drama = await getMovieById(id);
+  if (!isValidDramaId(id)) notFound();
+
+  const drama = await getMovie(id);
   if (!drama) notFound();
 
   const {
@@ -41,7 +132,17 @@ export default async function WatchPage({
     rating,
     episodes,
   } = drama;
+
   const isSinglePart = contentType === 'movie' || totalEpisodes === 1;
+  const episodeNum = parseWatchEpisodeParam(epRaw, {
+    isSinglePart,
+    totalEpisodes,
+  });
+
+  if (shouldNormalizeWatchSearchParams(epRaw, episodeNum, isSinglePart)) {
+    redirect(watchPagePath(id, episodeNum, isSinglePart));
+  }
+
   const isFreeMovie = contentType === 'movie' && (price == null || price === 0);
   const episodeList = isSinglePart ? [] : Array.from({ length: totalEpisodes }, (_, i) => i + 1);
 
@@ -57,12 +158,10 @@ export default async function WatchPage({
     ? Math.max(1, Math.round(currentEpisode.duration / 60))
     : undefined;
 
-  // Recommendations: filtered server-side by content type + genre overlap
-  const recommended = await getRecommendedMovies(id, contentType ?? 'movie', genres ?? [], 5);
+  const watchHref = (ep: number) => watchPagePath(id, ep, isSinglePart);
 
   return (
     <div className="min-h-screen bg-gray-50 pt-14 sm:pt-20">
-      {/* Top bar: compact on mobile, full on desktop */}
       <div className="sticky top-14 sm:top-16 z-20 border-b border-gray-200 bg-white/95 backdrop-blur-md">
         <div className="container mx-auto px-3 sm:px-4 md:px-8 py-3 sm:py-4">
           <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0">
@@ -91,7 +190,6 @@ export default async function WatchPage({
 
       <div className="container mx-auto px-0 sm:px-4 md:px-8 py-4 sm:py-10 md:py-12">
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 lg:gap-10">
-          {/* Video: full-bleed on mobile, inset on larger screens */}
           <div className="flex-1 min-w-0 px-0 sm:px-0">
             <div className="rounded-none sm:rounded-2xl overflow-hidden shadow-xl glow-red ring-1 ring-black/5 bg-black">
               <WatchAccessGate
@@ -105,7 +203,6 @@ export default async function WatchPage({
               />
             </div>
 
-            {/* Now watching / details row */}
             <div className="mt-3 sm:mt-4 space-y-3 sm:space-y-4">
               <div className="glass rounded-xl border border-gray-200 bg-white px-4 sm:px-5 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 shadow-sm">
                 <div className="flex-1 min-w-0">
@@ -153,12 +250,11 @@ export default async function WatchPage({
                   </div>
                 </div>
 
-                {/* Next / previous controls */}
                 {!isSinglePart && (hasPrevEpisode || hasNextEpisode) && (
                   <div className="flex flex-row sm:flex-col gap-2 sm:gap-2 shrink-0">
                     {hasPrevEpisode && (
                       <Link
-                        href={`/drama/${id}/watch?ep=${episodeNum - 1}`}
+                        href={watchHref(episodeNum - 1)}
                         className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white text-xs sm:text-[11px] text-gray-700 hover:bg-gray-50 hover:border-gray-300 px-3 py-1.5 transition-colors"
                       >
                         {t('previousEpisode')}
@@ -166,7 +262,7 @@ export default async function WatchPage({
                     )}
                     {hasNextEpisode && (
                       <Link
-                        href={`/drama/${id}/watch?ep=${episodeNum + 1}`}
+                        href={watchHref(episodeNum + 1)}
                         className="inline-flex items-center justify-center rounded-lg bg-(--primary-red) text-xs sm:text-[11px] text-white hover:bg-(--primary-red)/90 px-3 py-1.5 transition-colors"
                       >
                         {t('nextEpisode')}
@@ -177,8 +273,7 @@ export default async function WatchPage({
                 )}
               </div>
 
-              {/* About & tips */}
-              <div className="grid md:grid-cols-[minmax(0,2.2fr),minmax(0,1.2fr)] gap-3 sm:gap-4">
+              <div className="space-y-3 sm:space-y-4">
                 <div className="rounded-xl border border-gray-200 bg-white px-4 sm:px-5 py-3 sm:py-4 shadow-sm">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="inline-flex h-6 w-1 rounded-full bg-(--primary-red)" />
@@ -200,7 +295,7 @@ export default async function WatchPage({
                       <FiChevronRight className="text-xs" />
                     </Link>
                   </div>
-                </div>               
+                </div>
               </div>
             </div>
           </div>
@@ -228,7 +323,7 @@ export default async function WatchPage({
                       return (
                         <Link
                           key={num}
-                          href={`/drama/${id}/watch?ep=${num}`}
+                          href={watchHref(num)}
                           className={`
                             flex items-center gap-3 w-full px-4 py-3 rounded-lg sm:rounded-xl text-sm font-semibold transition-all duration-200 touch-manipulation border-l-4 sm:border-l-[6px]
                             ${isActive
@@ -237,19 +332,17 @@ export default async function WatchPage({
                             }
                           `}
                         >
-                          <span className={`
+                          <span
+                            className={`
                             flex items-center justify-center w-8 h-8 shrink-0 rounded-lg text-xs font-bold
                             ${isActive ? 'bg-white text-(--primary-red)' : 'bg-white text-(--text-secondary) border border-(--dark-border)'}
-                          `}>
+                          `}
+                          >
                             {num}
                           </span>
-                          <span className="flex-1 text-sm">
-                            {t('episodeNumbered', { num })}
-                          </span>
+                          <span className="flex-1 text-sm">{t('episodeNumbered', { num })}</span>
                           {currentEpisode?.episodeNumber === num && runtimeMinutes && (
-                            <span className="text-[11px] text-gray-500">
-                              {runtimeMinutes}m
-                            </span>
+                            <span className="text-[11px] text-gray-500">{runtimeMinutes}m</span>
                           )}
                         </Link>
                       );
@@ -261,41 +354,13 @@ export default async function WatchPage({
           )}
         </div>
 
-        {/* Recommended titles */}
-        {recommended.length > 0 && (
-          <section className="mt-10 sm:mt-12">
-            <div className="flex items-center justify-between gap-3 mb-4 sm:mb-5">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-7 w-1.5 rounded-full bg-(--primary-red)" />
-                <h2 className="text-lg sm:text-xl font-bold text-gray-900">
-                  {t('youMayAlsoLike')}
-                </h2>
-              </div>
-              <span className="text-xs sm:text-sm text-gray-500">
-                {t('handpickedForYou')}
-              </span>
-            </div>
-            <div className={DRAMA_CARD_GRID}>
-              {recommended.map((item) => {
-                const isSeries = item.contentType === 'series' || item.episodes > 1;
-                const isMovie = item.contentType === 'movie' || (!isSeries && item.episodes <= 1);
-                return (
-                  <DramaCardCompact
-                    key={item.id}
-                    id={item.id}
-                    title={item.title}
-                    titleKh={item.titleKh}
-                    episodes={item.episodes}
-                    image={item.image}
-                    showWatchButton={isSeries}
-                    showMovieButton={isMovie}
-                    price={isMovie ? item.price : undefined}
-                  />
-                );
-              })}
-            </div>
-          </section>
-        )}
+        <Suspense fallback={<WatchRecommendationsSkeleton />}>
+          <WatchRecommendations
+            id={id}
+            contentType={contentType ?? 'movie'}
+            genres={genres ?? []}
+          />
+        </Suspense>
       </div>
     </div>
   );

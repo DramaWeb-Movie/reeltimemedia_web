@@ -12,6 +12,8 @@ interface DramaCardCompactProps {
   titleKh?: string;
   episodes: number;
   image: string;
+  /** Prefer true for the first above-the-fold poster to improve LCP */
+  priority?: boolean;
   showWatchButton?: boolean;
   /** For movie cards: show Watch if purchased, else show price / pay */
   showMovieButton?: boolean;
@@ -20,7 +22,7 @@ interface DramaCardCompactProps {
   price?: number;
 }
 
-const DramaCardCompact = memo(function DramaCardCompact({ id, title, titleKh, episodes, image, showWatchButton, showMovieButton, hasPurchased, price }: DramaCardCompactProps) {
+const DramaCardCompact = memo(function DramaCardCompact({ id, title, titleKh, episodes, image, priority, showWatchButton, showMovieButton, hasPurchased, price }: DramaCardCompactProps) {
   const t = useTranslations('watch');
   const tMovies = useTranslations('movies');
   const watchHref = episodes > 1 ? `/drama/${id}/watch?ep=1` : `/drama/${id}/watch`;
@@ -42,6 +44,7 @@ const DramaCardCompact = memo(function DramaCardCompact({ id, title, titleKh, ep
               src={image}
               alt={title}
               fill
+              priority={priority}
               className="object-cover"
               sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 16vw"
             />
