@@ -1,16 +1,10 @@
-import { getFeaturedMovies, getPurchasedMovieIdsForCurrentUser } from '@/lib/movies';
+import { getFeaturedMovies } from '@/lib/movies';
 import HomeContent from '@/components/home/HomeContent';
 
-export default async function HomePage() {
-  const [featuredItems, purchasedMovieIds] = await Promise.all([
-    getFeaturedMovies(18),
-    getPurchasedMovieIdsForCurrentUser(),
-  ]);
+export const revalidate = 60;
 
-  return (
-    <HomeContent
-      featuredItems={featuredItems}
-      purchasedMovieIds={Array.from(purchasedMovieIds)}
-    />
-  );
+export default async function HomePage() {
+  const featuredItems = await getFeaturedMovies(18);
+
+  return <HomeContent featuredItems={featuredItems} />;
 }

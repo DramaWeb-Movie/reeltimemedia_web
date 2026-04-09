@@ -1,101 +1,89 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { startTransition, useCallback, useEffect, useState } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
+import { usePurchasedMovieIds } from '@/hooks/usePurchasedMovieIds';
 import DramaCardCompact from '@/components/drama/DramaCardCompact';
 import Pagination from '@/components/shared/Pagination';
 import { DRAMA_CARD_GRID } from '@/lib/drama-grid';
 import { FiSearch, FiX } from 'react-icons/fi';
 import { useTranslations } from 'next-intl';
-import type { MovieCard } from '@/lib/movies';
-
-const PAGE_SIZE = 12;
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import type { BrowseAccessFilter, BrowseTypeFilter, MovieCard } from '@/lib/movies';
 
 type BrowseContentProps = {
-  initialDramas: MovieCard[];
-  purchasedMovieIds: string[];
+  initialItems: MovieCard[];
+  allGenres: string[];
+  currentPage: number;
+  totalPages: number;
+  totalResults: number;
+  filters: {
+    q: string;
+    access: BrowseAccessFilter;
+    type: BrowseTypeFilter;
+    genre: string;
+  };
 };
 
-export default function BrowseContent({ initialDramas, purchasedMovieIds }: BrowseContentProps) {
+export default function BrowseContent({
+  initialItems,
+  allGenres,
+  currentPage,
+  totalPages,
+  totalResults,
+  filters,
+}: BrowseContentProps) {
   const t = useTranslations('browse');
-  const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(filters.q);
   const debouncedQuery = useDebounce(searchQuery, 300);
-  const [freeFilter, setFreeFilter] = useState<'all' | 'free' | 'paid'>('all');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'movie' | 'series'>('all');
-  const [genreFilter, setGenreFilter] = useState<'all' | string>('all');
-  const [currentPage, setCurrentPage] = useState(1);
+  const { purchasedSet } = usePurchasedMovieIds();
 
-  const purchasedSet = useMemo(() => new Set(purchasedMovieIds), [purchasedMovieIds]);
+  const updateBrowseUrl = useCallback((next: {
+    q?: string;
+    access?: BrowseAccessFilter;
+    type?: BrowseTypeFilter;
+    genre?: string;
+    page?: number;
+  }) => {
+    const params = new URLSearchParams(searchParams?.toString());
+    const q = (next.q ?? filters.q).trim();
+    const access = next.access ?? filters.access;
+    const type = next.type ?? filters.type;
+    const genre = (next.genre ?? filters.genre).trim();
+    const page = next.page ?? currentPage;
 
-  const allGenres = useMemo(() => {
-    const set = new Set<string>();
-    for (const d of initialDramas) {
-      d.genres?.forEach((g) => {
-        const trimmed = g.trim();
-        if (trimmed) set.add(trimmed);
-      });
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [initialDramas]);
+    if (q) params.set('q', q);
+    else params.delete('q');
 
-  const filtered = useMemo(() => {
-    const q = debouncedQuery.trim().toLowerCase();
-    const genreNeedle =
-      genreFilter === 'all' ? null : genreFilter.trim().toLowerCase();
+    if (access !== 'all') params.set('access', access);
+    else params.delete('access');
 
-    return initialDramas.filter((d) => {
-      // Text search (Khmer + English)
-      if (q) {
-        const titleEn = d.title?.toLowerCase() ?? '';
-        const titleKh = d.titleKh?.toLowerCase() ?? '';
-        if (!titleEn.includes(q) && !titleKh.includes(q)) {
-          return false;
-        }
-      }
+    if (type !== 'all') params.set('type', type);
+    else params.delete('type');
 
-      // Free / paid filter
-      if (freeFilter === 'free') {
-        const isFreeMovie = d.contentType === 'movie' && (!d.price || d.price === 0);
-        const isFreeSeries = d.contentType === 'series' && (d.freeEpisodesCount ?? 0) > 0;
-        if (!isFreeMovie && !isFreeSeries) return false;
-      } else if (freeFilter === 'paid') {
-        const isPaidMovie = d.contentType === 'movie' && !!d.price && d.price > 0;
-        const isPaidSeries = d.contentType === 'series' && !(d.freeEpisodesCount && d.freeEpisodesCount > 0);
-        if (!isPaidMovie && !isPaidSeries) return false;
-      }
+    if (genre) params.set('genre', genre);
+    else params.delete('genre');
 
-      // Content type filter
-      if (typeFilter !== 'all' && d.contentType !== typeFilter) {
-        return false;
-      }
+    if (page > 1) params.set('page', String(page));
+    else params.delete('page');
 
-      // Genre filter
-      if (genreNeedle !== null) {
-        const genres = d.genres ?? [];
-        if (!genres.some((g) => g.trim().toLowerCase() === genreNeedle)) {
-          return false;
-        }
-      }
-
-      return true;
+    const query = params.toString();
+    startTransition(() => {
+      router.replace(query ? `${pathname}?${query}` : pathname);
     });
-  }, [initialDramas, debouncedQuery, freeFilter, typeFilter, genreFilter]);
+  }, [currentPage, filters.access, filters.genre, filters.q, filters.type, pathname, router, searchParams]);
 
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)),
-    [filtered.length],
-  );
-
-  const safePage = Math.min(currentPage, totalPages);
-
-  const paginatedDramas = useMemo(
-    () =>
-      filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
-    [filtered, safePage],
-  );
+  useEffect(() => {
+    const normalized = debouncedQuery.trim();
+    if (normalized === filters.q) return;
+    updateBrowseUrl({ q: normalized, page: 1 });
+  }, [debouncedQuery, filters.q, updateBrowseUrl]);
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(page);
+    updateBrowseUrl({ page });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -114,20 +102,14 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
           <input
             type="text"
             value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
+            onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t('searchPlaceholder')}
             className="w-full bg-white border border-gray-200 focus:border-brand-red/50 rounded-xl pl-11 pr-10 py-3 text-gray-900 placeholder-gray-400 outline-none transition-colors text-sm shadow-sm"
           />
           {searchQuery && (
             <button
               type="button"
-              onClick={() => {
-                setSearchQuery('');
-                setCurrentPage(1);
-              }}
+              onClick={() => setSearchQuery('')}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors"
             >
               <FiX className="text-lg" />
@@ -142,10 +124,12 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
               {t('labelAccess')}
             </label>
             <select
-              value={freeFilter}
+              value={filters.access}
               onChange={(e) => {
-                setFreeFilter(e.target.value as 'all' | 'free' | 'paid');
-                setCurrentPage(1);
+                updateBrowseUrl({
+                  access: e.target.value as BrowseAccessFilter,
+                  page: 1,
+                });
               }}
               className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-red/60 focus:border-brand-red/60 min-w-[160px]"
             >
@@ -161,10 +145,12 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
               {t('labelType')}
             </label>
             <select
-              value={typeFilter}
+              value={filters.type}
               onChange={(e) => {
-                setTypeFilter(e.target.value as 'all' | 'movie' | 'series');
-                setCurrentPage(1);
+                updateBrowseUrl({
+                  type: e.target.value as BrowseTypeFilter,
+                  page: 1,
+                });
               }}
               className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-red/60 focus:border-brand-red/60 min-w-[160px]"
             >
@@ -181,10 +167,12 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
                 {t('labelGenre')}
               </label>
               <select
-                value={genreFilter}
+                value={filters.genre || 'all'}
                 onChange={(e) => {
-                  setGenreFilter(e.target.value as 'all' | string);
-                  setCurrentPage(1);
+                  updateBrowseUrl({
+                    genre: e.target.value === 'all' ? '' : e.target.value,
+                    page: 1,
+                  });
                 }}
                 className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-red/60 focus:border-brand-red/60 min-w-[180px]"
               >
@@ -199,19 +187,19 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
           )}
         </div>
 
-        {debouncedQuery && (
+        {filters.q && (
           <p className="text-gray-400 text-sm mb-6">
-            {filtered.length === 0
+            {totalResults === 0
               ? t('noResultsFound')
-              : filtered.length === 1
-                ? t('results', { count: filtered.length, query: debouncedQuery })
-                : t('resultsPlural', { count: filtered.length, query: debouncedQuery })}
+              : totalResults === 1
+                ? t('results', { count: totalResults, query: filters.q })
+                : t('resultsPlural', { count: totalResults, query: filters.q })}
           </p>
         )}
 
-        {paginatedDramas.length > 0 ? (
+        {initialItems.length > 0 ? (
           <div className={DRAMA_CARD_GRID}>
-            {paginatedDramas.map((drama) => {
+            {initialItems.map((drama) => {
               const isSeries = drama.contentType === 'series' || drama.episodes > 1;
               const isMovie = drama.contentType === 'movie' || (!isSeries && drama.episodes <= 1);
               return (
@@ -238,10 +226,10 @@ export default function BrowseContent({ initialDramas, purchasedMovieIds }: Brow
           </div>
         )}
 
-        {filtered.length > 0 && totalPages > 1 && (
+        {initialItems.length > 0 && totalPages > 1 && (
           <div className="mt-12">
             <Pagination
-              currentPage={safePage}
+              currentPage={currentPage}
               totalPages={totalPages}
               onPageChange={handlePageChange}
             />

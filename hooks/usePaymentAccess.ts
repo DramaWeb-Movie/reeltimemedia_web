@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 interface AccessStatus {
@@ -201,27 +201,25 @@ export function usePaymentAccess(
   isFreeEpisode?: boolean,
   isFreeMovie?: boolean
 ): AccessStatus {
-  const params: AccessParams = {
-    contentType,
-    contentId,
-    isFreeEpisode,
-    isFreeMovie,
-  };
+  const params = useMemo<AccessParams>(
+    () => ({
+      contentType,
+      contentId,
+      isFreeEpisode,
+      isFreeMovie,
+    }),
+    [contentType, contentId, isFreeEpisode, isFreeMovie]
+  );
 
-  const storeKey = makeKey(params);
-  const paramsRef = useRef(params);
-  paramsRef.current = params;
-
-  // useSyncExternalStore requires a stable subscribe identity between renders when the logical
-  // store key is unchanged. A new inline subscribe each render causes React to resubscribe every
-  // time, which runs startCompute → notify synchronously and can freeze the tab.
+  // Memoized params keep the external-store subscription stable until the actual access inputs
+  // change, which avoids unnecessary resubscribe cycles.
   const subscribe = useCallback((onStoreChange: () => void) => {
-    return attachAccessStoreListener(paramsRef.current, onStoreChange);
-  }, [storeKey]);
+    return attachAccessStoreListener(params, onStoreChange);
+  }, [params]);
 
   const getSnapshotForStore = useCallback(() => {
-    return getSnapshot(paramsRef.current);
-  }, [storeKey]);
+    return getSnapshot(params);
+  }, [params]);
 
   return useSyncExternalStore(subscribe, getSnapshotForStore, getServerSnapshot);
 }

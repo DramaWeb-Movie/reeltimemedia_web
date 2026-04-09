@@ -22,6 +22,7 @@ const SENSITIVE_QUERY_KEYS = new Set([
 
 const SENSITIVE_PATH_PATTERNS = [
   /^\/api\/payments\//,
+  /^\/api\/watch\/hls$/,
   /^\/api\/watch\/stream$/,
 ];
 
@@ -272,4 +273,3 @@ export function logApiRequest(params: {
   };
   console.log(JSON.stringify(event));
 }
-

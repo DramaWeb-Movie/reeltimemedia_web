@@ -228,6 +228,7 @@ export default function WatchAccessGate({
       )}
       {(playbackUrl || hlsManifestUrl) && (
         <HlsPlayer
+          key={`${hlsManifestUrl ?? 'manifest:none'}|${playbackUrl ?? 'fallback:none'}`}
           manifestUrl={hlsManifestUrl}
           fallbackUrl={playbackUrl}
           title={videoTitle}

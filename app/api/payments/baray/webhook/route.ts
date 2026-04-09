@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { processWebhook, BarayWebhookPayload } from '@/lib/baray';
 import { enforceRateLimit } from '@/lib/api/rateLimit';
+import { timingSafeEqualText } from '@/lib/security/timingSafeEqual';
+
+const ALLOWED_BANKS = new Set<BarayWebhookPayload['bank']>([
+  'aba',
+  'acleda',
+  'spn',
+  'wing',
+]);
+
+function getConfiguredWebhookSecret(): string | null {
+  const secret = process.env.BARAY_WEBHOOK_SECRET?.trim() ?? '';
+  if (secret) return secret;
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('BARAY_WEBHOOK_SECRET is required in production');
+  }
+
+  return null;
+}
 
 /**
  * Baray Webhook Handler
@@ -28,22 +47,24 @@ export async function POST(request: NextRequest) {
 
   try {
     // Verify webhook secret header if BARAY_WEBHOOK_SECRET is configured.
-    // Set this to a shared secret agreed upon with Baray (or any reverse-proxy layer)
-    // so that only legitimate calls from Baray can trigger payment fulfilment.
-    const webhookSecret = process.env.BARAY_WEBHOOK_SECRET;
+    // In production this secret is required so fulfillment is never left unauthenticated.
+    const webhookSecret = getConfiguredWebhookSecret();
     if (webhookSecret) {
-      const incomingSecret = request.headers.get('x-webhook-secret');
-      if (incomingSecret !== webhookSecret) {
+      const incomingSecret = request.headers.get('x-webhook-secret')?.trim() ?? '';
+      if (!incomingSecret || !timingSafeEqualText(incomingSecret, webhookSecret)) {
         console.warn('Webhook rejected: invalid or missing x-webhook-secret header');
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
     }
 
-    const body: BarayWebhookPayload = await request.json();
-    const { encrypted_order_id, bank } = body;
+    const body = await request.json();
+    const encrypted_order_id =
+      typeof body?.encrypted_order_id === 'string' ? body.encrypted_order_id.trim() : '';
+    const bank =
+      typeof body?.bank === 'string' ? body.bank.trim().toLowerCase() : '';
 
     // Validate webhook payload
-    if (!encrypted_order_id || !bank) {
+    if (!encrypted_order_id || !ALLOWED_BANKS.has(bank as BarayWebhookPayload['bank'])) {
       console.error('Invalid webhook payload: missing required fields');
       return NextResponse.json(
         { error: 'Invalid webhook payload' },
@@ -56,7 +77,10 @@ export async function POST(request: NextRequest) {
     let bankCode: string;
     
     try {
-      const result = processWebhook(encrypted_order_id, bank);
+      const result = processWebhook(
+        encrypted_order_id,
+        bank as BarayWebhookPayload['bank']
+      );
       orderId = result.order_id;
       bankCode = result.bank;
     } catch (decryptError) {

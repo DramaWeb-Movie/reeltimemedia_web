@@ -2,6 +2,7 @@
  * Server-side movie data from Supabase. Use from API routes or Server Components.
  */
 import { unstable_cache } from 'next/cache';
+import { getAuthenticatedUserId } from '@/lib/supabase/authUser';
 import { createAnonClient, createClient } from '@/lib/supabase/server';
 import type { Drama, ContentType } from '@/types';
 
@@ -87,6 +88,65 @@ const CARD_COLUMNS =
 // Columns needed for the full detail / watch page (omit DB columns that may not exist in every project, e.g. content_rating)
 const DETAIL_COLUMNS =
   'id, title, title_kh, description, genre, release_date, duration, thumbnail_url, video_url, hls_manifest_url, status, type, price, free_episodes_count, subscription_plan_id, total_episodes, cast, trailer_url';
+
+export type BrowseAccessFilter = 'all' | 'free' | 'paid';
+export type BrowseTypeFilter = 'all' | 'movie' | 'series';
+
+export type BrowseFilters = {
+  q?: string;
+  access?: BrowseAccessFilter;
+  type?: BrowseTypeFilter;
+  genre?: string;
+};
+
+function normalizeBrowseQuery(input: string): string {
+  return input
+    .normalize('NFKC')
+    .replace(/[,%_*()[\]{}<>"'`;$\\]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function escapeForILike(value: string): string {
+  return value.replace(/[%_]/g, (m) => `\\${m}`);
+}
+
+function wrapLogicalGroup(content: string): string {
+  return content.includes(',') ? `or(${content})` : content;
+}
+
+function buildBrowseAccessExpression(
+  type: BrowseTypeFilter,
+  access: BrowseAccessFilter
+): { root: string; nested: string } | null {
+  if (access === 'all') return null;
+
+  if (type === 'movie') {
+    if (access === 'free') {
+      const root = 'price.is.null,price.lte.0';
+      return { root, nested: `or(${root})` };
+    }
+    return { root: 'price.gt.0', nested: 'price.gt.0' };
+  }
+
+  if (type === 'series') {
+    if (access === 'free') {
+      return { root: 'free_episodes_count.gt.0', nested: 'free_episodes_count.gt.0' };
+    }
+    const root = 'free_episodes_count.is.null,free_episodes_count.lte.0';
+    return { root, nested: `or(${root})` };
+  }
+
+  if (access === 'free') {
+    const root =
+      'and(type.eq.single,or(price.is.null,price.lte.0)),and(type.eq.series,free_episodes_count.gt.0)';
+    return { root, nested: `or(${root})` };
+  }
+
+  const root =
+    'and(type.eq.single,price.gt.0),and(type.eq.series,or(free_episodes_count.is.null,free_episodes_count.lte.0))';
+  return { root, nested: `or(${root})` };
+}
 
 function rowToCard(row: MovieRow): MovieCard {
   const contentType: ContentType = row.type === 'series' ? 'series' : 'movie';
@@ -219,125 +279,235 @@ export async function getMoviesPage(options: {
   )();
 }
 
+export async function getBrowseGenres(): Promise<string[]> {
+  return unstable_cache(
+    async () => {
+      const supabase = createAnonClient();
+      const { data, error } = await supabase
+        .from('movies')
+        .select('genre')
+        .eq('status', 'published');
+
+      if (error) {
+        console.error('getBrowseGenres error:', error);
+        return [];
+      }
+
+      const genres = new Set<string>();
+      for (const row of data ?? []) {
+        const genreValue = typeof row.genre === 'string' ? row.genre : '';
+        genreValue
+          .split(',')
+          .map((genre) => genre.trim())
+          .filter(Boolean)
+          .forEach((genre) => genres.add(genre));
+      }
+
+      return Array.from(genres).sort((a, b) => a.localeCompare(b));
+    },
+    ['browse-genres'],
+    { revalidate: 300 }
+  )();
+}
+
+export async function getBrowseMoviesPage(options: BrowseFilters & {
+  page: number;
+  pageSize: number;
+}): Promise<{ items: MovieCard[]; total: number }> {
+  const pageSize = Math.max(1, Math.min(100, Math.floor(options.pageSize)));
+  const page = Math.max(1, Math.floor(options.page));
+  const q = normalizeBrowseQuery(options.q ?? '');
+  const access = options.access ?? 'all';
+  const type = options.type ?? 'all';
+  const genre = (options.genre ?? '').trim();
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  return unstable_cache(
+    async () => {
+      const supabase = createAnonClient();
+      let query = supabase
+        .from('movies')
+        .select(CARD_COLUMNS, { count: 'planned' })
+        .eq('status', 'published')
+        .order('created_at', { ascending: false });
+
+      if (type === 'movie') {
+        query = query.eq('type', 'single');
+      } else if (type === 'series') {
+        query = query.eq('type', 'series');
+      }
+
+      if (genre) {
+        query = query.ilike('genre', `%${escapeForILike(genre)}%`);
+      }
+
+      const accessExpr = buildBrowseAccessExpression(type, access);
+      if (q) {
+        const likeQ = escapeForILike(q);
+        if (accessExpr) {
+          query = query.or(
+            [
+              `and(title.ilike.%${likeQ}%,${wrapLogicalGroup(accessExpr.root)})`,
+              `and(title_kh.ilike.%${likeQ}%,${wrapLogicalGroup(accessExpr.root)})`,
+            ].join(',')
+          );
+        } else {
+          query = query.or(`title.ilike.%${likeQ}%,title_kh.ilike.%${likeQ}%`);
+        }
+      } else if (accessExpr) {
+        query = query.or(accessExpr.root);
+      }
+
+      const { data, error, count } = await query.range(from, to);
+
+      if (error) {
+        console.error('getBrowseMoviesPage error:', error);
+        return { items: [], total: 0 };
+      }
+
+      return {
+        items: (data as MovieRow[]).map(rowToCard),
+        total: count ?? 0,
+      };
+    },
+    [
+      'browse-movies-page',
+      String(page),
+      String(pageSize),
+      q || '_',
+      access,
+      type,
+      genre || '_',
+    ],
+    { revalidate: 60 }
+  )();
+}
+
 /**
  * Fetch a single movie by id for the detail/watch page.
- * Uses the cookie-aware client so RLS policies work correctly for all users.
+ * Published content is public, so this uses the anon client and shared cache.
  * The subscription_plans and series_episodes fetches run in parallel.
  * Use React's cache() at the callsite for per-request deduplication.
  */
 export async function getMovieById(id: string): Promise<Drama | null> {
-    const supabase = await createClient();
-    const { data: row, error } = await supabase
-      .from('movies')
-      .select(DETAIL_COLUMNS)
-      .eq('id', id)
-      .eq('status', 'published')
-      .single();
+  return unstable_cache(
+    async () => {
+      const supabase = createAnonClient();
+      const { data: row, error } = await supabase
+        .from('movies')
+        .select(DETAIL_COLUMNS)
+        .eq('id', id)
+        .eq('status', 'published')
+        .single();
 
-    if (error || !row) {
-      const code = (error as unknown as Record<string, unknown> | null)?.code;
-      const hasRealError = code && code !== 'PGRST116';
-      if (hasRealError) console.error('getMovieById error:', error);
-      return null;
-    }
+      if (error || !row) {
+        const code = (error as unknown as Record<string, unknown> | null)?.code;
+        const hasRealError = code && code !== 'PGRST116';
+        if (hasRealError) console.error('getMovieById error:', error);
+        return null;
+      }
 
-    const r = row as MovieRow;
-    const contentType: ContentType = r.type === 'series' ? 'series' : 'movie';
-    const totalEpisodes =
-      contentType === 'series' ? Math.max(1, r.total_episodes ?? 1) : 1;
-    const posterUrl = r.thumbnail_url?.trim() || PLACEHOLDER_IMAGE;
+      const r = row as MovieRow;
+      const contentType: ContentType = r.type === 'series' ? 'series' : 'movie';
+      const totalEpisodes =
+        contentType === 'series' ? Math.max(1, r.total_episodes ?? 1) : 1;
+      const posterUrl = r.thumbnail_url?.trim() || PLACEHOLDER_IMAGE;
 
-    // Fetch subscription plan price and series episodes in parallel
-    const [planResult, seriesEpisodesResult] = await Promise.all([
-      r.subscription_plan_id
-        ? supabase
-            .from('subscription_plans')
-            .select('price')
-            .eq('id', r.subscription_plan_id)
-            .single()
-        : Promise.resolve({ data: null, error: null }),
-      contentType === 'series'
-        ? supabase
-            .from('series_episodes')
-            .select('id, episode_number, title, duration, video_url, hls_manifest_url')
-            .eq('movie_id', r.id)
-            .order('episode_number', { ascending: true })
-        : Promise.resolve({ data: null, error: null }),
-    ]);
+      const [planResult, seriesEpisodesResult] = await Promise.all([
+        r.subscription_plan_id
+          ? supabase
+              .from('subscription_plans')
+              .select('price')
+              .eq('id', r.subscription_plan_id)
+              .single()
+          : Promise.resolve({ data: null, error: null }),
+        contentType === 'series'
+          ? supabase
+              .from('series_episodes')
+              .select('id, episode_number, title, duration, video_url, hls_manifest_url')
+              .eq('movie_id', r.id)
+              .order('episode_number', { ascending: true })
+          : Promise.resolve({ data: null, error: null }),
+      ]);
 
-    const monthlyPrice =
-      planResult.data && 'price' in planResult.data && planResult.data.price != null
-        ? Number(planResult.data.price)
-        : undefined;
+      const monthlyPrice =
+        planResult.data && 'price' in planResult.data && planResult.data.price != null
+          ? Number(planResult.data.price)
+          : undefined;
 
-    const seriesEpisodes = (seriesEpisodesResult.data as SeriesEpisodeRow[] | null) ?? [];
-    const seriesEpisodeByNumber = new Map<number, SeriesEpisodeRow>(
-      seriesEpisodes.map((episode) => [episode.episode_number, episode])
-    );
+      const seriesEpisodes = (seriesEpisodesResult.data as SeriesEpisodeRow[] | null) ?? [];
+      const seriesEpisodeByNumber = new Map<number, SeriesEpisodeRow>(
+        seriesEpisodes.map((episode) => [episode.episode_number, episode])
+      );
 
-    const baseEpisode = {
-      dramaId: r.id,
-      duration: r.duration ?? 0,
-      releaseDate: r.release_date ?? '',
-      thumbnailUrl: r.thumbnail_url ?? undefined,
-    };
+      const baseEpisode = {
+        dramaId: r.id,
+        duration: r.duration ?? 0,
+        releaseDate: r.release_date ?? '',
+        thumbnailUrl: r.thumbnail_url ?? undefined,
+      };
 
-    let episodes: Drama['episodes'];
+      let episodes: Drama['episodes'];
 
-    if (contentType === 'movie') {
-      episodes = r.video_url || r.hls_manifest_url
-        ? [{
-            id: `${r.id}-1`,
-            ...baseEpisode,
-            episodeNumber: 1,
-            title: r.title,
-            videoUrl: r.video_url ?? '',
-            ...(r.hls_manifest_url ? { hlsManifestUrl: r.hls_manifest_url } : {}),
-          }]
-        : [];
-    } else {
-      episodes = Array.from({ length: totalEpisodes }, (_, i) => {
-        const epNum = i + 1;
-        const dbEp = seriesEpisodeByNumber.get(epNum);
-        return {
-          id: dbEp?.id ?? `${r.id}-${epNum}`,
-          dramaId: r.id,
-          episodeNumber: epNum,
-          title: dbEp?.title ?? `Episode ${epNum}`,
-          duration: dbEp?.duration ?? r.duration ?? 0,
-          releaseDate: r.release_date ?? '',
-          thumbnailUrl: r.thumbnail_url ?? undefined,
-          videoUrl: dbEp?.video_url?.trim() ?? '',
-          ...(dbEp?.hls_manifest_url ? { hlsManifestUrl: dbEp.hls_manifest_url } : {}),
-        };
-      });
-    }
+      if (contentType === 'movie') {
+        episodes = r.video_url || r.hls_manifest_url
+          ? [{
+              id: `${r.id}-1`,
+              ...baseEpisode,
+              episodeNumber: 1,
+              title: r.title,
+              videoUrl: r.video_url ?? '',
+              ...(r.hls_manifest_url ? { hlsManifestUrl: r.hls_manifest_url } : {}),
+            }]
+          : [];
+      } else {
+        episodes = Array.from({ length: totalEpisodes }, (_, i) => {
+          const epNum = i + 1;
+          const dbEp = seriesEpisodeByNumber.get(epNum);
+          return {
+            id: dbEp?.id ?? `${r.id}-${epNum}`,
+            dramaId: r.id,
+            episodeNumber: epNum,
+            title: dbEp?.title ?? `Episode ${epNum}`,
+            duration: dbEp?.duration ?? r.duration ?? 0,
+            releaseDate: r.release_date ?? '',
+            thumbnailUrl: r.thumbnail_url ?? undefined,
+            videoUrl: dbEp?.video_url?.trim() ?? '',
+            ...(dbEp?.hls_manifest_url ? { hlsManifestUrl: dbEp.hls_manifest_url } : {}),
+          };
+        });
+      }
 
-    const rating = parseNumericRating(r.content_rating);
-    const drama: Drama = {
-      id: r.id,
-      title: r.title,
-      titleKh: r.title_kh?.trim() || undefined,
-      description: r.description ?? '',
-      posterUrl,
-      bannerUrl: r.thumbnail_url?.trim() || posterUrl,
-      releaseYear: r.release_date
-        ? new Date(r.release_date).getFullYear()
-        : new Date().getFullYear(),
-      ...(rating != null && { rating }),
-      genres: r.genre ? r.genre.split(',').map((g) => g.trim()).filter(Boolean) : [],
-      episodes,
-      cast: parseCast(r.cast),
-      status: (r.status === 'published' ? 'completed' : 'ongoing') as 'ongoing' | 'completed',
-      totalEpisodes,
-      contentType,
-      price: r.price != null ? Number(r.price) : undefined,
-      rentPrice: undefined,
-      monthlyPrice,
-      freeEpisodesCount: r.free_episodes_count != null ? Number(r.free_episodes_count) : 0,
-      trailerUrl: r.trailer_url?.trim() || undefined,
-    };
-    return drama;
+      const rating = parseNumericRating(r.content_rating);
+      const drama: Drama = {
+        id: r.id,
+        title: r.title,
+        titleKh: r.title_kh?.trim() || undefined,
+        description: r.description ?? '',
+        posterUrl,
+        bannerUrl: r.thumbnail_url?.trim() || posterUrl,
+        releaseYear: r.release_date
+          ? new Date(r.release_date).getFullYear()
+          : new Date().getFullYear(),
+        ...(rating != null && { rating }),
+        genres: r.genre ? r.genre.split(',').map((g) => g.trim()).filter(Boolean) : [],
+        episodes,
+        cast: parseCast(r.cast),
+        status: (r.status === 'published' ? 'completed' : 'ongoing') as 'ongoing' | 'completed',
+        totalEpisodes,
+        contentType,
+        price: r.price != null ? Number(r.price) : undefined,
+        rentPrice: undefined,
+        monthlyPrice,
+        freeEpisodesCount: r.free_episodes_count != null ? Number(r.free_episodes_count) : 0,
+        trailerUrl: r.trailer_url?.trim() || undefined,
+      };
+      return drama;
+    },
+    ['movie-detail', id],
+    { revalidate: 60 }
+  )();
 }
 
 /** Fetch featured items for home hero (published, any type, limit 10). Cached 60s. */
@@ -428,12 +598,12 @@ export async function hasPurchasedContent(
   contentType: 'movie' | 'subscription' = 'movie'
 ): Promise<boolean> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return false;
+  const userId = await getAuthenticatedUserId(supabase);
+  if (!userId) return false;
   const { data } = await supabase
     .from('purchases')
     .select('id')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .eq('content_id', contentId)
     .eq('content_type', contentType)
     .maybeSingle();
@@ -443,12 +613,12 @@ export async function hasPurchasedContent(
 /** Server-only: get current user's purchased movie IDs (for Watch vs Buy). Not cached. */
 export async function getPurchasedMovieIdsForCurrentUser(): Promise<Set<string>> {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return new Set();
+  const userId = await getAuthenticatedUserId(supabase);
+  if (!userId) return new Set();
   const { data: rows } = await supabase
     .from('purchases')
     .select('content_id')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .eq('content_type', 'movie');
   return new Set((rows || []).map((r: { content_id: string }) => r.content_id));
 }

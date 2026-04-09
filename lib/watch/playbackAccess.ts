@@ -1,9 +1,10 @@
 import { createClient } from '@/lib/supabase/server';
+import { getAuthenticatedUserId } from '@/lib/supabase/authUser';
 import { getMovieById } from '@/lib/movies';
 import type { Drama } from '@/types';
 
 export type PlaybackGrant =
-  | { ok: true; sub: string; hlsManifestUrl: string | null }
+  | { ok: true; sub: string; videoUrl: string | null; hlsManifestUrl: string | null }
   | { ok: false; status: number; message: string };
 
 function videoUrlForEpisode(drama: Drama, ep: number): string {
@@ -26,7 +27,7 @@ function hlsManifestUrlForEpisode(drama: Drama, ep: number): string | null {
 
 /**
  * Same rules as stream: free movie / free episode → sub "anon"; else purchase or subscription.
- * Returns sub for JWT; stream route resolves video URL again from DB using token claims.
+ * Returns the resolved media URLs so the watch session route can cache them once per token.
  */
 export async function grantPlaybackAccess(contentId: string, ep: number): Promise<PlaybackGrant> {
   const drama = await getMovieById(contentId);
@@ -40,17 +41,23 @@ export async function grantPlaybackAccess(contentId: string, ep: number): Promis
   const isFreeEpisode = contentType === 'series' && freeEpisodesCount > 0 && ep <= freeEpisodesCount;
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const userId = await getAuthenticatedUserId(supabase);
 
   const hlsManifestUrl = hlsManifestUrlForEpisode(drama, ep);
+  const videoUrl = (() => {
+    const raw = videoUrlForEpisode(drama, ep);
+    return raw.trim() ? raw.trim() : null;
+  })();
 
-  if ((contentType === 'movie' && isFreeMovie) || (contentType === 'series' && isFreeEpisode)) {
-    return { ok: true, sub: 'anon', hlsManifestUrl };
+  if (!videoUrl && !hlsManifestUrl) {
+    return { ok: false, status: 404, message: 'Video not available' };
   }
 
-  if (!user) {
+  if ((contentType === 'movie' && isFreeMovie) || (contentType === 'series' && isFreeEpisode)) {
+    return { ok: true, sub: 'anon', videoUrl, hlsManifestUrl };
+  }
+
+  if (!userId) {
     return { ok: false, status: 401, message: 'Unauthorized' };
   }
 
@@ -58,27 +65,27 @@ export async function grantPlaybackAccess(contentId: string, ep: number): Promis
     const { data: sub } = await supabase
       .from('subscriptions')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('status', 'active')
       .gt('expires_at', new Date().toISOString())
       .maybeSingle();
     if (!sub) {
       return { ok: false, status: 403, message: 'Subscription required' };
     }
-    return { ok: true, sub: user.id, hlsManifestUrl };
+    return { ok: true, sub: userId, videoUrl, hlsManifestUrl };
   }
 
   const { data: purchase } = await supabase
     .from('purchases')
     .select('id')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .eq('content_id', contentId)
     .eq('content_type', 'movie')
     .maybeSingle();
   if (!purchase) {
     return { ok: false, status: 403, message: 'Purchase required' };
   }
-  return { ok: true, sub: user.id, hlsManifestUrl };
+  return { ok: true, sub: userId, videoUrl, hlsManifestUrl };
 }
 
 export async function getVideoUrlForPlayback(contentId: string, ep: number): Promise<string | null> {

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useDebounce } from '@/hooks/useDebounce';
+import { usePurchasedMovieIds } from '@/hooks/usePurchasedMovieIds';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import DramaCardCompact from '@/components/drama/DramaCardCompact';
 import Pagination from '@/components/shared/Pagination';
@@ -12,14 +13,12 @@ import type { MovieCard } from '@/lib/movies';
 
 export type MoviesContentProps = {
   initialItems: MovieCard[];
-  purchasedMovieIds: string[];
   currentPage: number;
   totalPages: number;
 };
 
 export default function MoviesContent({
   initialItems,
-  purchasedMovieIds,
   currentPage,
   totalPages,
 }: MoviesContentProps) {
@@ -30,8 +29,7 @@ export default function MoviesContent({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-
-  const purchasedSet = useMemo(() => new Set(purchasedMovieIds), [purchasedMovieIds]);
+  const { purchasedSet } = usePurchasedMovieIds();
 
   const filtered = useMemo(() => {
     const q = debouncedQuery.trim().toLowerCase();

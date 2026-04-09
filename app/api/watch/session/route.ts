@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { enforceRateLimit } from '@/lib/api/rateLimit';
 import { isWatchRequestFromOurSite } from '@/lib/watch/requestOrigin';
 import { grantPlaybackAccess } from '@/lib/watch/playbackAccess';
+import { createPlaybackKey, setPlaybackMetadata } from '@/lib/watch/playbackMetadata';
 import { getPlaybackTokenTtlSeconds, signPlaybackToken } from '@/lib/watch/playbackToken';
 
 export async function POST(request: NextRequest) {
@@ -63,11 +64,14 @@ export async function POST(request: NextRequest) {
 
   let token: string;
   let expiresAt: Date;
+  const playbackKey = createPlaybackKey();
+  const expiresInSeconds = getPlaybackTokenTtlSeconds();
   try {
     ({ token, expiresAt } = await signPlaybackToken({
       sub: grant.sub,
       contentId,
       ep,
+      playbackKey,
     }));
   } catch (e) {
     console.error('signPlaybackToken error:', e);
@@ -77,8 +81,18 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  await setPlaybackMetadata(
+    playbackKey,
+    {
+      contentId,
+      ep,
+      videoUrl: grant.videoUrl,
+      hlsManifestUrl: grant.hlsManifestUrl,
+    },
+    expiresInSeconds + 30
+  );
+
   const playbackUrl = `/api/watch/stream?token=${encodeURIComponent(token)}`;
-  const expiresInSeconds = getPlaybackTokenTtlSeconds();
   const hlsManifestUrl = grant.hlsManifestUrl
     ? `/api/watch/hls?token=${encodeURIComponent(token)}`
     : null;

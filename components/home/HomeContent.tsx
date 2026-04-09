@@ -6,12 +6,12 @@ import { FiTrendingUp, FiCheckCircle, FiDollarSign } from 'react-icons/fi';
 import { useTranslations } from 'next-intl';
 import DramaCardCompact from '@/components/drama/DramaCardCompact';
 import SectionHeader from '@/components/shared/SectionHeader';
+import { usePurchasedMovieIds } from '@/hooks/usePurchasedMovieIds';
 import { resolveContentKind } from '@/lib/utils';
 import type { FeaturedMovie } from '@/lib/movies';
 
 type HomeContentProps = {
   featuredItems: FeaturedMovie[];
-  purchasedMovieIds: string[];
 };
 
 type CardSlotProps = {
@@ -43,9 +43,9 @@ const CardSlot = memo(function CardSlot({ drama, purchasedSet, imagePriority }: 
   );
 });
 
-export default function HomeContent({ featuredItems, purchasedMovieIds }: HomeContentProps) {
+export default function HomeContent({ featuredItems }: HomeContentProps) {
   const t = useTranslations('home');
-  const purchasedSet = useMemo(() => new Set(purchasedMovieIds), [purchasedMovieIds]);
+  const { purchasedSet } = usePurchasedMovieIds();
 
   const { mostWatchedDramas, mustSeeDramas, trendingDramas } = useMemo(() => {
     const SECTION_SIZE = 6;

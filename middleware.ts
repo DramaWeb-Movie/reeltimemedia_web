@@ -1,19 +1,26 @@
-import { type NextRequest } from 'next/server';
+import { NextResponse, type NextRequest } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 import { logApiRequest } from '@/lib/logging/requestLog';
 
+function shouldRefreshSession(pathname: string): boolean {
+  return pathname !== '/api/watch/hls' && pathname !== '/api/watch/stream';
+}
+
 export async function middleware(request: NextRequest) {
   const start = Date.now();
+  const pathname = request.nextUrl.pathname;
 
-  const response = await updateSession(request);
+  const response = shouldRefreshSession(pathname)
+    ? await updateSession(request)
+    : NextResponse.next({ request });
 
   // Keep logs focused: API traffic is typically what you want for auditing/abuse detection.
-  if (request.nextUrl.pathname.startsWith('/api/')) {
+  if (pathname.startsWith('/api/')) {
     logApiRequest({
       request,
       status: response.status,
       durationMs: Date.now() - start,
-      route: request.nextUrl.pathname,
+      route: pathname,
     });
   }
 

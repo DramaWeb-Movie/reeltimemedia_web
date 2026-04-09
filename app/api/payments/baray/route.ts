@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
       envUrl ||
       'http://localhost:3000';
     const successUrl = buildSuccessUrl(baseUrl, orderId, contentId);
-    const failUrl = buildFailUrl(baseUrl, orderId, contentId);
+    const failUrl = buildFailUrl(baseUrl, orderId, user.id, contentId);
 
     // Create Baray payment payload (only include defined values; Baray may reject undefined)
     const tracking: Record<string, string> = { product: contentTitle };

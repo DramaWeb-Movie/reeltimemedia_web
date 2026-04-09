@@ -60,6 +60,8 @@ export default function HlsPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
+  const [isPlayerReady, setIsPlayerReady] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(() => Boolean(manifestUrl || fallbackUrl));
 
   const scheduleQualityModeReset = useCallback((mode: QualityMode) => {
     queueMicrotask(() => {
@@ -69,6 +71,8 @@ export default function HlsPlayer({
       setQualityMode(mode);
     });
   }, []);
+
+  const showLoadingOverlay = Boolean(manifestUrl || fallbackUrl) && (!isPlayerReady || isBuffering);
 
   const keepControlsVisible = useCallback(() => {
     setShowControls(true);
@@ -98,6 +102,8 @@ export default function HlsPlayer({
 
     hlsRef.current?.destroy();
     hlsRef.current = null;
+    video.removeAttribute('src');
+    video.load();
 
     if (manifestUrl && Hls.isSupported()) {
       const hls = new Hls({ enableWorker: true });
@@ -140,6 +146,8 @@ export default function HlsPlayer({
         hls.destroy();
         hlsRef.current = null;
         if (fallbackUrl) {
+          setIsPlayerReady(false);
+          setIsBuffering(true);
           video.src = fallbackUrl;
           setQualityMode('progressive');
           return;
@@ -173,17 +181,47 @@ export default function HlsPlayer({
 
     const onTimeUpdate = () => setCurrentTime(video.currentTime || 0);
     const onLoadedMetadata = () => setDuration(video.duration || 0);
+    const onLoadedData = () => {
+      setIsPlayerReady(true);
+      setIsBuffering(false);
+    };
+    const onCanPlay = () => {
+      setIsPlayerReady(true);
+      setIsBuffering(false);
+    };
     const onPlay = () => {
       setIsPlaying(true);
+      setIsPlayerReady(true);
+      setIsBuffering(false);
       keepControlsVisible();
     };
     const onPause = () => {
       setIsPlaying(false);
       setShowControls(true);
+      if (video.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA || video.ended) {
+        setIsBuffering(false);
+      }
     };
     const onVolumeChange = () => {
       setVolume(video.volume);
       setIsMuted(video.muted || video.volume === 0);
+    };
+    const onWaiting = () => {
+      if (!video.ended) setIsBuffering(true);
+    };
+    const onSeeking = () => {
+      if (!video.paused) setIsBuffering(true);
+    };
+    const onSeeked = () => {
+      if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+        setIsBuffering(false);
+      }
+    };
+    const onStalled = () => {
+      if (!video.ended) setIsBuffering(true);
+    };
+    const onEnded = () => {
+      setIsBuffering(false);
     };
     const onVideoError = () => {
       const mediaError = video.error;
@@ -194,17 +232,31 @@ export default function HlsPlayer({
 
     video.addEventListener('timeupdate', onTimeUpdate);
     video.addEventListener('loadedmetadata', onLoadedMetadata);
+    video.addEventListener('loadeddata', onLoadedData);
+    video.addEventListener('canplay', onCanPlay);
     video.addEventListener('play', onPlay);
     video.addEventListener('pause', onPause);
     video.addEventListener('volumechange', onVolumeChange);
+    video.addEventListener('waiting', onWaiting);
+    video.addEventListener('seeking', onSeeking);
+    video.addEventListener('seeked', onSeeked);
+    video.addEventListener('stalled', onStalled);
+    video.addEventListener('ended', onEnded);
     video.addEventListener('error', onVideoError);
 
     return () => {
       video.removeEventListener('timeupdate', onTimeUpdate);
       video.removeEventListener('loadedmetadata', onLoadedMetadata);
+      video.removeEventListener('loadeddata', onLoadedData);
+      video.removeEventListener('canplay', onCanPlay);
       video.removeEventListener('play', onPlay);
       video.removeEventListener('pause', onPause);
       video.removeEventListener('volumechange', onVolumeChange);
+      video.removeEventListener('waiting', onWaiting);
+      video.removeEventListener('seeking', onSeeking);
+      video.removeEventListener('seeked', onSeeked);
+      video.removeEventListener('stalled', onStalled);
+      video.removeEventListener('ended', onEnded);
       video.removeEventListener('error', onVideoError);
     };
   }, [manifestUrl, fallbackUrl, onError, keepControlsVisible]);
@@ -301,7 +353,7 @@ export default function HlsPlayer({
       className="w-full bg-black relative select-none"
       onMouseMove={keepControlsVisible}
       onMouseLeave={() => isPlaying && setShowControls(false)}
-    >
+      >
       <video
         ref={videoRef}
         className="w-full aspect-video object-contain"
@@ -312,6 +364,24 @@ export default function HlsPlayer({
         title={title}
         onClick={() => void togglePlayPause()}
       />
+
+      {showLoadingOverlay && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-black/55 px-6 py-5 text-center shadow-2xl">
+            <div className="relative h-14 w-14">
+              <div className="absolute inset-0 rounded-full border border-white/15" />
+              <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-white border-r-brand-red animate-spin" />
+              <div className="absolute inset-2 rounded-full bg-white/5" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-white">
+                {isPlayerReady ? t('bufferingVideo') : t('loadingVideo')}
+              </p>
+              <p className="text-xs text-white/70">{t('watchingOn')}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div
         className={`absolute inset-x-0 bottom-0 z-10 bg-linear-to-t from-black/90 via-black/50 to-transparent px-4 pb-3 pt-12 transition-opacity duration-200 ${

@@ -1,10 +1,12 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { enforceRateLimit } from '@/lib/api/rateLimit';
+import { getAuthenticatedUserId } from '@/lib/supabase/authUser';
 import { fetchWithBudget } from '@/lib/utils/fetchWithBudget';
 import { isWatchRequestFromOurSite } from '@/lib/watch/requestOrigin';
 import { getVideoUrlForPlayback } from '@/lib/watch/playbackAccess';
-import { verifyPlaybackToken } from '@/lib/watch/playbackToken';
+import { getPlaybackMetadata, setPlaybackMetadata } from '@/lib/watch/playbackMetadata';
+import { getPlaybackTokenTtlSeconds, verifyPlaybackToken } from '@/lib/watch/playbackToken';
 
 /**
  * Stream video through the server so the real storage URL is never exposed.
@@ -42,15 +44,36 @@ export async function GET(request: NextRequest) {
 
   if (claims.sub !== 'anon') {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user || user.id !== claims.sub) {
+    const userId = await getAuthenticatedUserId(supabase);
+    if (!userId || userId !== claims.sub) {
       return new Response('Forbidden', { status: 403 });
     }
   }
 
-  const videoUrl = await getVideoUrlForPlayback(claims.contentId, claims.ep);
+  const cachedMetadata = await getPlaybackMetadata(claims.playbackKey);
+  let videoUrl =
+    cachedMetadata &&
+    cachedMetadata.contentId === claims.contentId &&
+    cachedMetadata.ep === claims.ep
+      ? cachedMetadata.videoUrl
+      : null;
+
+  if (!videoUrl) {
+    videoUrl = await getVideoUrlForPlayback(claims.contentId, claims.ep);
+    if (videoUrl) {
+      await setPlaybackMetadata(
+        claims.playbackKey,
+        {
+          contentId: claims.contentId,
+          ep: claims.ep,
+          videoUrl,
+          hlsManifestUrl: cachedMetadata?.hlsManifestUrl ?? null,
+        },
+        getPlaybackTokenTtlSeconds() + 30
+      );
+    }
+  }
+
   if (!videoUrl) {
     return new Response('Video not available', { status: 404 });
   }

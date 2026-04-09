@@ -1,10 +1,12 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { enforceRateLimit } from '@/lib/api/rateLimit';
+import { getAuthenticatedUserId } from '@/lib/supabase/authUser';
 import { fetchWithBudget } from '@/lib/utils/fetchWithBudget';
 import { resolveAdaptiveManifestUrl } from '@/lib/watch/hlsManifest';
 import { getHlsManifestUrlForPlayback } from '@/lib/watch/playbackAccess';
-import { verifyPlaybackToken } from '@/lib/watch/playbackToken';
+import { getPlaybackMetadata, setPlaybackMetadata } from '@/lib/watch/playbackMetadata';
+import { getPlaybackTokenTtlSeconds, verifyPlaybackToken } from '@/lib/watch/playbackToken';
 import { isWatchRequestFromOurSite } from '@/lib/watch/requestOrigin';
 
 const HLS_ACCEPT_HEADER = 'application/vnd.apple.mpegurl,application/x-mpegURL,text/plain,*/*';
@@ -110,10 +112,8 @@ async function authorizePlaybackRequest(token: string) {
 
   if (claims.sub !== 'anon') {
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user || user.id !== claims.sub) {
+    const userId = await getAuthenticatedUserId(supabase);
+    if (!userId || userId !== claims.sub) {
       return { ok: false as const, response: new Response('Forbidden', { status: 403 }) };
     }
   }
@@ -147,7 +147,30 @@ export async function GET(request: NextRequest) {
   const auth = await authorizePlaybackRequest(token);
   if (!auth.ok) return auth.response;
 
-  const storedManifestUrl = await getHlsManifestUrlForPlayback(auth.claims.contentId, auth.claims.ep);
+  const cachedMetadata = await getPlaybackMetadata(auth.claims.playbackKey);
+  let storedManifestUrl =
+    cachedMetadata &&
+    cachedMetadata.contentId === auth.claims.contentId &&
+    cachedMetadata.ep === auth.claims.ep
+      ? cachedMetadata.hlsManifestUrl
+      : null;
+
+  if (!storedManifestUrl) {
+    storedManifestUrl = await getHlsManifestUrlForPlayback(auth.claims.contentId, auth.claims.ep);
+    if (storedManifestUrl) {
+      await setPlaybackMetadata(
+        auth.claims.playbackKey,
+        {
+          contentId: auth.claims.contentId,
+          ep: auth.claims.ep,
+          videoUrl: cachedMetadata?.videoUrl ?? null,
+          hlsManifestUrl: storedManifestUrl,
+        },
+        getPlaybackTokenTtlSeconds() + 30
+      );
+    }
+  }
+
   if (!storedManifestUrl) {
     return new Response('HLS manifest not available', { status: 404 });
   }

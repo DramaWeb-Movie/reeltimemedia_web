@@ -3,6 +3,7 @@ import path from "path";
 import createNextIntlPlugin from 'next-intl/plugin';
 
 const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
+const isProduction = process.env.NODE_ENV === 'production';
 
 const nextConfig: NextConfig = {
   // Avoid wrong Turbopack root when a parent folder has its own lockfile (see Next.js warning).
@@ -47,11 +48,15 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              `script-src 'self' 'unsafe-inline'${isProduction ? '' : " 'unsafe-eval'"}`,
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https://pub-ac9788ff252148bd812a13ddd99ab8a4.r2.dev https://placehold.co https://i.ytimg.com",
               "media-src 'self' blob:",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "frame-ancestors 'none'",
               "frame-src https://www.youtube.com https://www.youtube-nocookie.com",
               "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
             ].join('; '),

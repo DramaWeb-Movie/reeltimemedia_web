@@ -21,6 +21,7 @@ export type PlaybackTokenPayload = {
   sub: string;
   contentId: string;
   ep: number;
+  playbackKey: string;
   jti: string;
 };
 
@@ -45,6 +46,7 @@ export async function signPlaybackToken(payload: Omit<PlaybackTokenPayload, 'jti
   const token = await new SignJWT({
     cid: payload.contentId,
     ep: payload.ep,
+    pk: payload.playbackKey,
     jti,
   })
     .setProtectedHeader({ alg: ALG, typ: 'JWT' })
@@ -63,11 +65,19 @@ export async function verifyPlaybackToken(token: string): Promise<PlaybackTokenP
     const sub = typeof payload.sub === 'string' ? payload.sub : '';
     const cid = payload.cid;
     const ep = payload.ep;
+    const pk = payload.pk;
     const jti = payload.jti;
     if (!sub || typeof cid !== 'string' || !cid.trim()) return null;
     if (typeof ep !== 'number' || !Number.isFinite(ep) || ep < 1) return null;
+    if (typeof pk !== 'string' || !pk.trim()) return null;
     if (typeof jti !== 'string' || !jti) return null;
-    return { sub, contentId: cid.trim(), ep: Math.floor(ep), jti };
+    return {
+      sub,
+      contentId: cid.trim(),
+      ep: Math.floor(ep),
+      playbackKey: pk.trim(),
+      jti,
+    };
   } catch {
     return null;
   }

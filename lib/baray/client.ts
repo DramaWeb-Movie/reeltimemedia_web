@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { fetchWithBudget } from '@/lib/utils/fetchWithBudget';
+import { signPaymentFailToken } from '@/lib/payments/failToken';
 import {
   BarayCredentials,
   BarayPaymentPayload,
@@ -207,10 +208,12 @@ export function buildSuccessUrl(
 export function buildFailUrl(
   baseUrl: string,
   orderId: string,
+  userId: string,
   contentId?: string
 ): string {
   const params = new URLSearchParams({
     order_id: orderId,
+    cancel_token: signPaymentFailToken({ orderId, userId }),
     ...(contentId && { id: contentId }),
   });
   return `${baseUrl}/payment/failed?${params.toString()}`;

@@ -11,16 +11,17 @@ function FailedContent() {
   const t = useTranslations('payment');
   const searchParams = useSearchParams();
   const orderId = searchParams.get('order_id');
+  const cancelToken = searchParams.get('cancel_token');
   const contentId = searchParams.get('id');
 
   useEffect(() => {
-    if (!orderId) return;
+    if (!orderId || !cancelToken) return;
     fetch('/api/payments/baray/fail', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ order_id: orderId }),
+      body: JSON.stringify({ order_id: orderId, cancel_token: cancelToken }),
     }).catch(() => {});
-  }, [orderId]);
+  }, [cancelToken, orderId]);
 
   return (
     <div className="min-h-screen bg-gray-50 pt-24">
