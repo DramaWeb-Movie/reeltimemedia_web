@@ -43,6 +43,8 @@ export interface Episode {
   duration: number;
   releaseDate: string;
   videoUrl: string;
+  /** HLS master manifest URL when transcoding is complete */
+  hlsManifestUrl?: string;
   thumbnailUrl?: string;
 }
 

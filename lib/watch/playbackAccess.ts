@@ -3,7 +3,7 @@ import { getMovieById } from '@/lib/movies';
 import type { Drama } from '@/types';
 
 export type PlaybackGrant =
-  | { ok: true; sub: string }
+  | { ok: true; sub: string; hlsManifestUrl: string | null }
   | { ok: false; status: number; message: string };
 
 function videoUrlForEpisode(drama: Drama, ep: number): string {
@@ -13,6 +13,15 @@ function videoUrlForEpisode(drama: Drama, ep: number): string {
     return drama.episodes[0].videoUrl;
   }
   return drama.episodes[ep - 1]?.videoUrl ?? drama.episodes[0]?.videoUrl ?? '';
+}
+
+function hlsManifestUrlForEpisode(drama: Drama, ep: number): string | null {
+  const contentType = drama.contentType === 'series' ? 'series' : 'movie';
+  const isSinglePart = contentType === 'movie' || drama.totalEpisodes <= 1;
+  const episode = isSinglePart
+    ? drama.episodes[0]
+    : (drama.episodes[ep - 1] ?? drama.episodes[0]);
+  return episode?.hlsManifestUrl ?? null;
 }
 
 /**
@@ -35,8 +44,10 @@ export async function grantPlaybackAccess(contentId: string, ep: number): Promis
     data: { user },
   } = await supabase.auth.getUser();
 
+  const hlsManifestUrl = hlsManifestUrlForEpisode(drama, ep);
+
   if ((contentType === 'movie' && isFreeMovie) || (contentType === 'series' && isFreeEpisode)) {
-    return { ok: true, sub: 'anon' };
+    return { ok: true, sub: 'anon', hlsManifestUrl };
   }
 
   if (!user) {
@@ -54,7 +65,7 @@ export async function grantPlaybackAccess(contentId: string, ep: number): Promis
     if (!sub) {
       return { ok: false, status: 403, message: 'Subscription required' };
     }
-    return { ok: true, sub: user.id };
+    return { ok: true, sub: user.id, hlsManifestUrl };
   }
 
   const { data: purchase } = await supabase
@@ -67,7 +78,7 @@ export async function grantPlaybackAccess(contentId: string, ep: number): Promis
   if (!purchase) {
     return { ok: false, status: 403, message: 'Purchase required' };
   }
-  return { ok: true, sub: user.id };
+  return { ok: true, sub: user.id, hlsManifestUrl };
 }
 
 export async function getVideoUrlForPlayback(contentId: string, ep: number): Promise<string | null> {
@@ -75,4 +86,14 @@ export async function getVideoUrlForPlayback(contentId: string, ep: number): Pro
   if (!drama) return null;
   const url = videoUrlForEpisode(drama, ep);
   return url.trim() ? url : null;
+}
+
+export async function getHlsManifestUrlForPlayback(
+  contentId: string,
+  ep: number
+): Promise<string | null> {
+  const drama = await getMovieById(contentId);
+  if (!drama) return null;
+  const url = hlsManifestUrlForEpisode(drama, ep);
+  return url?.trim() ? url.trim() : null;
 }

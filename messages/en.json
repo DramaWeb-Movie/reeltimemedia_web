@@ -223,7 +223,14 @@
     "metadataNotFoundDesc": "This title is unavailable or was removed.",
     "metadataDefaultDesc": "Watch {title} on ReelTime Media.",
     "metadataMovieTitle": "Watch {title} | ReelTime Media",
-    "metadataEpisodeTitle": "{title} — Episode {num} | ReelTime Media"
+    "metadataEpisodeTitle": "{title} — Episode {num} | ReelTime Media",
+    "quality": "Quality",
+    "qualityAuto": "Auto",
+    "qualityAutoWithStream": "Auto ({label})",
+    "qualitySingleRendition": "Only one quality is available for this stream.",
+    "qualityNativeHint": "This browser picks quality automatically. For manual quality, try Chrome or Edge on desktop when HLS adaptive streaming is used.",
+    "qualityProgressiveHint": "This title uses a single video file, so quality cannot be changed.",
+    "ariaQuality": "Video quality"
   },
   "drama": {
     "free": "Free",

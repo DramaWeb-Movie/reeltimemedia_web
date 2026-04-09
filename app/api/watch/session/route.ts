@@ -79,9 +79,13 @@ export async function POST(request: NextRequest) {
 
   const playbackUrl = `/api/watch/stream?token=${encodeURIComponent(token)}`;
   const expiresInSeconds = getPlaybackTokenTtlSeconds();
+  const hlsManifestUrl = grant.hlsManifestUrl
+    ? `/api/watch/hls?token=${encodeURIComponent(token)}`
+    : null;
 
   return NextResponse.json({
     playbackUrl,
+    ...(hlsManifestUrl ? { hlsManifestUrl } : {}),
     expiresAt: expiresAt.toISOString(),
     expiresInSeconds,
   });

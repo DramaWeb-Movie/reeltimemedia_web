@@ -15,6 +15,7 @@ export interface MovieRow {
   duration: number | null;
   thumbnail_url: string | null;
   video_url: string | null;
+  hls_manifest_url?: string | null;
   subtitle_url: string | null;
   status: string | null;
   type: string | null;
@@ -76,6 +77,7 @@ interface SeriesEpisodeRow {
   title: string;
   duration: number;
   video_url: string;
+  hls_manifest_url?: string | null;
 }
 
 // Columns needed for card rendering — avoids fetching unused heavy fields
@@ -84,7 +86,7 @@ const CARD_COLUMNS =
 
 // Columns needed for the full detail / watch page (omit DB columns that may not exist in every project, e.g. content_rating)
 const DETAIL_COLUMNS =
-  'id, title, title_kh, description, genre, release_date, duration, thumbnail_url, video_url, status, type, price, free_episodes_count, subscription_plan_id, total_episodes, cast, trailer_url';
+  'id, title, title_kh, description, genre, release_date, duration, thumbnail_url, video_url, hls_manifest_url, status, type, price, free_episodes_count, subscription_plan_id, total_episodes, cast, trailer_url';
 
 function rowToCard(row: MovieRow): MovieCard {
   const contentType: ContentType = row.type === 'series' ? 'series' : 'movie';
@@ -257,7 +259,7 @@ export async function getMovieById(id: string): Promise<Drama | null> {
       contentType === 'series'
         ? supabase
             .from('series_episodes')
-            .select('id, episode_number, title, duration, video_url')
+            .select('id, episode_number, title, duration, video_url, hls_manifest_url')
             .eq('movie_id', r.id)
             .order('episode_number', { ascending: true })
         : Promise.resolve({ data: null, error: null }),
@@ -283,8 +285,15 @@ export async function getMovieById(id: string): Promise<Drama | null> {
     let episodes: Drama['episodes'];
 
     if (contentType === 'movie') {
-      episodes = r.video_url
-        ? [{ id: `${r.id}-1`, ...baseEpisode, episodeNumber: 1, title: r.title, videoUrl: r.video_url }]
+      episodes = r.video_url || r.hls_manifest_url
+        ? [{
+            id: `${r.id}-1`,
+            ...baseEpisode,
+            episodeNumber: 1,
+            title: r.title,
+            videoUrl: r.video_url ?? '',
+            ...(r.hls_manifest_url ? { hlsManifestUrl: r.hls_manifest_url } : {}),
+          }]
         : [];
     } else {
       episodes = Array.from({ length: totalEpisodes }, (_, i) => {
@@ -299,6 +308,7 @@ export async function getMovieById(id: string): Promise<Drama | null> {
           releaseDate: r.release_date ?? '',
           thumbnailUrl: r.thumbnail_url ?? undefined,
           videoUrl: dbEp?.video_url?.trim() ?? '',
+          ...(dbEp?.hls_manifest_url ? { hlsManifestUrl: dbEp.hls_manifest_url } : {}),
         };
       });
     }

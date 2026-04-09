@@ -223,7 +223,14 @@
     "metadataNotFoundDesc": "ចំណងជើងនេះមិនមាន ឬត្រូវបានដកចេញ។",
     "metadataDefaultDesc": "មើល {title} នៅលើ ReelTime Media។",
     "metadataMovieTitle": "មើល {title} | ReelTime Media",
-    "metadataEpisodeTitle": "{title} — វគ្គ {num} | ReelTime Media"
+    "metadataEpisodeTitle": "{title} — វគ្គ {num} | ReelTime Media",
+    "quality": "គុណភាពវីដេអូ",
+    "qualityAuto": "ស្វ័យប្រវត្តិ",
+    "qualityAutoWithStream": "ស្វ័យប្រវត្តិ ({label})",
+    "qualitySingleRendition": "ស្ទ្រីមនេះមានតែមួយកម្រិតគុណភាពប៉ុណ្ណោះ។",
+    "qualityNativeHint": "កម្មវិធីរុករកនេះជ្រើសគុណភាពស្វ័យប្រវត្តិ។ សម្រាប់ការជ្រើសដៃ សាកល្បង Chrome ឬ Edge លើកុំព្យូទ័រ។",
+    "qualityProgressiveHint": "ចំណងជើងនេះប្រើឯកសារវីដេអូតែមួយ ដូច្នេះមិនអាចប្តូរគុណភាពបានទេ។",
+    "ariaQuality": "គុណភាពវីដេអូ"
   },
   "drama": {
     "free": "ឥតគិតថ្លៃ",

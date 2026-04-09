@@ -6,6 +6,7 @@ import { FiLock, FiPlay, FiRefreshCw } from 'react-icons/fi';
 import { usePaymentAccess } from '@/hooks/usePaymentAccess';
 import Button from '@/components/ui/Button';
 import { useTranslations } from 'next-intl';
+import HlsPlayer from '@/components/watch/HlsPlayer';
 
 interface WatchAccessGateProps {
   contentId: string;
@@ -40,11 +41,12 @@ export default function WatchAccessGate({
   );
 
   const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
+  const [hlsManifestUrl, setHlsManifestUrl] = useState<string | null>(null);
   const [sessionLoading, setSessionLoading] = useState(false);
   const [sessionError, setSessionError] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const resumeTimeRef = useRef(0);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastErrorRetryAtRef = useRef(0);
+  const errorRetryInFlightRef = useRef(false);
 
   const clearRefreshTimer = useCallback(() => {
     if (refreshTimerRef.current) {
@@ -68,22 +70,20 @@ export default function WatchAccessGate({
         });
         const data = (await res.json().catch(() => null)) as {
           playbackUrl?: string;
+          hlsManifestUrl?: string;
           expiresInSeconds?: number;
           error?: string;
         } | null;
 
         if (!res.ok || !data?.playbackUrl) {
           setPlaybackUrl(null);
+          setHlsManifestUrl(null);
           setSessionError(true);
           return { ok: false as const, expiresInSeconds: 0 };
         }
 
-        const v = videoRef.current;
-        if (v && v.paused && !v.ended && v.currentTime > 0.5) {
-          resumeTimeRef.current = v.currentTime;
-        }
-
         setPlaybackUrl(data.playbackUrl);
+        setHlsManifestUrl(data.hlsManifestUrl ?? null);
         setSessionError(false);
         const expiresInSeconds =
           typeof data.expiresInSeconds === 'number' && data.expiresInSeconds > 0
@@ -92,6 +92,7 @@ export default function WatchAccessGate({
         return { ok: true as const, expiresInSeconds };
       } catch {
         setPlaybackUrl(null);
+        setHlsManifestUrl(null);
         setSessionError(true);
         return { ok: false as const, expiresInSeconds: 0 };
       } finally {
@@ -104,13 +105,9 @@ export default function WatchAccessGate({
   const scheduleProactiveRefresh = useCallback(
     (expiresInSeconds: number) => {
       clearRefreshTimer();
+      // Refresh at 72% of the token lifetime, minimum 15s
       const delay = Math.max(15_000, expiresInSeconds * 1000 * 0.72);
       refreshTimerRef.current = setTimeout(async () => {
-        const v = videoRef.current;
-        if (v && !v.paused && !v.ended) {
-          scheduleProactiveRefresh(Math.min(120, expiresInSeconds * 0.25));
-          return;
-        }
         const result = await fetchPlaybackSession();
         if (result.ok) {
           scheduleProactiveRefresh(result.expiresInSeconds);
@@ -123,6 +120,7 @@ export default function WatchAccessGate({
   useEffect(() => {
     if (!hasAccess) {
       setPlaybackUrl(null);
+      setHlsManifestUrl(null);
       setSessionError(false);
       clearRefreshTimer();
       return;
@@ -141,29 +139,25 @@ export default function WatchAccessGate({
     };
   }, [hasAccess, contentId, currentEp, fetchPlaybackSession, scheduleProactiveRefresh, clearRefreshTimer]);
 
-  useEffect(() => {
-    if (!playbackUrl || !videoRef.current) return;
-    const v = videoRef.current;
-    const tRestore = resumeTimeRef.current;
-    const onMeta = () => {
-      if (tRestore > 0.5) {
-        v.currentTime = tRestore;
-      }
-      resumeTimeRef.current = 0;
-    };
-    v.addEventListener('loadedmetadata', onMeta, { once: true });
-    return () => v.removeEventListener('loadedmetadata', onMeta);
-  }, [playbackUrl]);
-
   const handleVideoError = useCallback(() => {
-    resumeTimeRef.current = videoRef.current?.currentTime ?? 0;
+    if (sessionLoading) return;
+    if (errorRetryInFlightRef.current) return;
+    const now = Date.now();
+    // Avoid request storms when the browser emits repeated media errors.
+    if (now - lastErrorRetryAtRef.current < 4000) return;
+    lastErrorRetryAtRef.current = now;
+    errorRetryInFlightRef.current = true;
     void (async () => {
-      const result = await fetchPlaybackSession({ afterError: true });
-      if (result.ok) {
-        scheduleProactiveRefresh(result.expiresInSeconds);
+      try {
+        const result = await fetchPlaybackSession({ afterError: true });
+        if (result.ok) {
+          scheduleProactiveRefresh(result.expiresInSeconds);
+        }
+      } finally {
+        errorRetryInFlightRef.current = false;
       }
     })();
-  }, [fetchPlaybackSession, scheduleProactiveRefresh]);
+  }, [fetchPlaybackSession, scheduleProactiveRefresh, sessionLoading]);
 
   if (loading) {
     return (
@@ -205,7 +199,7 @@ export default function WatchAccessGate({
     );
   }
 
-  if (sessionError && !playbackUrl && !sessionLoading) {
+  if (sessionError && !playbackUrl && !hlsManifestUrl && !sessionLoading) {
     return (
       <div className="rounded-2xl overflow-hidden bg-white border border-gray-200 shadow-sm flex flex-col items-center justify-center aspect-video px-6 text-center">
         <p className="text-gray-600 text-sm mb-4 max-w-md">{t('sessionFailed')}</p>
@@ -221,30 +215,26 @@ export default function WatchAccessGate({
     );
   }
 
+  const videoTitle = isSinglePart || !episodeNum
+    ? title
+    : `${title} - ${t('episode')} ${episodeNum.toString()}`;
+
   return (
     <div className="rounded-2xl overflow-hidden bg-gray-900 border border-gray-700 shadow-xl relative">
-      {sessionLoading && !playbackUrl && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/40">
+      {sessionLoading && !playbackUrl && !hlsManifestUrl && (
+        <div className="flex items-center justify-center aspect-video bg-black/40">
           <div className="animate-pulse w-10 h-10 border-2 border-white border-t-transparent rounded-full" />
         </div>
       )}
-      <video
-        ref={videoRef}
-        className="w-full aspect-video"
-        controls
-        autoPlay
-        playsInline
-        preload="metadata"
-        src={playbackUrl ?? undefined}
-        onError={handleVideoError}
-        title={
-          isSinglePart || !episodeNum
-            ? title
-            : `${title} - ${t('episode')} ${episodeNum.toString()}`
-        }
-      >
-        {t('noVideoSupport')}
-      </video>
+      {(playbackUrl || hlsManifestUrl) && (
+        <HlsPlayer
+          manifestUrl={hlsManifestUrl}
+          fallbackUrl={playbackUrl}
+          title={videoTitle}
+          autoPlay
+          onError={handleVideoError}
+        />
+      )}
     </div>
   );
 }
