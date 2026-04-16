@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FiLock, FiPlay, FiRefreshCw } from 'react-icons/fi';
-import { usePaymentAccess } from '@/hooks/usePaymentAccess';
 import Button from '@/components/ui/Button';
 import { useTranslations } from 'next-intl';
 import HlsPlayer from '@/components/watch/HlsPlayer';
@@ -33,17 +32,12 @@ export default function WatchAccessGate({
   const isFreeEpisode =
     contentType === 'series' && freeEpisodesCount > 0 && currentEp <= freeEpisodesCount;
 
-  const { hasAccess, loading } = usePaymentAccess(
-    contentType,
-    contentType === 'movie' ? contentId : undefined,
-    isFreeEpisode,
-    isFreeMovie
-  );
-
   const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
   const [hlsManifestUrl, setHlsManifestUrl] = useState<string | null>(null);
   const [sessionLoading, setSessionLoading] = useState(false);
   const [sessionError, setSessionError] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [deniedByAuth, setDeniedByAuth] = useState(false);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastErrorRetryAtRef = useRef(0);
   const errorRetryInFlightRef = useRef(false);
@@ -78,23 +72,28 @@ export default function WatchAccessGate({
         if (!res.ok || !data?.playbackUrl) {
           setPlaybackUrl(null);
           setHlsManifestUrl(null);
-          setSessionError(true);
-          return { ok: false as const, expiresInSeconds: 0 };
+          const denied = res.status === 401 || res.status === 403;
+          setAccessDenied(denied);
+          setDeniedByAuth(res.status === 401);
+          setSessionError(!denied);
+          return { ok: false as const, expiresInSeconds: 0, denied };
         }
 
         setPlaybackUrl(data.playbackUrl);
         setHlsManifestUrl(data.hlsManifestUrl ?? null);
         setSessionError(false);
+        setAccessDenied(false);
+        setDeniedByAuth(false);
         const expiresInSeconds =
           typeof data.expiresInSeconds === 'number' && data.expiresInSeconds > 0
             ? data.expiresInSeconds
             : 900;
-        return { ok: true as const, expiresInSeconds };
+        return { ok: true as const, expiresInSeconds, denied: false as const };
       } catch {
         setPlaybackUrl(null);
         setHlsManifestUrl(null);
         setSessionError(true);
-        return { ok: false as const, expiresInSeconds: 0 };
+        return { ok: false as const, expiresInSeconds: 0, denied: false as const };
       } finally {
         setSessionLoading(false);
       }
@@ -118,13 +117,6 @@ export default function WatchAccessGate({
   );
 
   useEffect(() => {
-    if (!hasAccess) {
-      setPlaybackUrl(null);
-      setHlsManifestUrl(null);
-      setSessionError(false);
-      clearRefreshTimer();
-      return;
-    }
     let cancelled = false;
     (async () => {
       const result = await fetchPlaybackSession();
@@ -137,7 +129,16 @@ export default function WatchAccessGate({
       cancelled = true;
       clearRefreshTimer();
     };
-  }, [hasAccess, contentId, currentEp, fetchPlaybackSession, scheduleProactiveRefresh, clearRefreshTimer]);
+  }, [
+    contentId,
+    currentEp,
+    fetchPlaybackSession,
+    scheduleProactiveRefresh,
+    clearRefreshTimer,
+    contentType,
+    isFreeEpisode,
+    isFreeMovie,
+  ]);
 
   const handleVideoError = useCallback(() => {
     if (sessionLoading) return;
@@ -159,7 +160,7 @@ export default function WatchAccessGate({
     })();
   }, [fetchPlaybackSession, scheduleProactiveRefresh, sessionLoading]);
 
-  if (loading) {
+  if (sessionLoading && !playbackUrl && !hlsManifestUrl && !accessDenied) {
     return (
       <div className="rounded-2xl overflow-hidden bg-gray-100 border border-gray-200 shadow-sm flex items-center justify-center aspect-video">
         <div className="animate-pulse w-10 h-10 border-2 border-brand-red border-t-transparent rounded-full" />
@@ -167,7 +168,7 @@ export default function WatchAccessGate({
     );
   }
 
-  if (!hasAccess) {
+  if (accessDenied) {
     const isMovie = contentType === 'movie';
 
     return (
@@ -179,7 +180,9 @@ export default function WatchAccessGate({
           {isMovie ? t('unlockMovie') : t('subscribeToWatch')}
         </h2>
         <p className="text-gray-500 text-sm max-w-md mb-4">
-          {isMovie
+          {deniedByAuth
+            ? (isMovie ? t('moviePayDesc') : t('subscribeDesc'))
+            : isMovie
             ? t('moviePayDesc')
             : freeEpisodesCount > 0
               ? t('episodeFreeRange', { count: freeEpisodesCount, ep: currentEp })

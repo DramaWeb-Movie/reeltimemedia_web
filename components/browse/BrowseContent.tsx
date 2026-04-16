@@ -41,6 +41,29 @@ export default function BrowseContent({
   const debouncedQuery = useDebounce(searchQuery, 300);
   const { purchasedSet } = usePurchasedMovieIds();
 
+  type CombinedFilterValue =
+    | 'all'
+    | 'movie'
+    | 'series'
+    | 'free'
+    | 'paid'
+    | 'movie-free'
+    | 'movie-paid'
+    | 'series-free'
+    | 'series-paid';
+
+  const combinedFilterValue: CombinedFilterValue = (() => {
+    if (filters.type === 'movie' && filters.access === 'free') return 'movie-free';
+    if (filters.type === 'movie' && filters.access === 'paid') return 'movie-paid';
+    if (filters.type === 'series' && filters.access === 'free') return 'series-free';
+    if (filters.type === 'series' && filters.access === 'paid') return 'series-paid';
+    if (filters.type === 'movie') return 'movie';
+    if (filters.type === 'series') return 'series';
+    if (filters.access === 'free') return 'free';
+    if (filters.access === 'paid') return 'paid';
+    return 'all';
+  })();
+
   const updateBrowseUrl = useCallback((next: {
     q?: string;
     access?: BrowseAccessFilter;
@@ -118,45 +141,57 @@ export default function BrowseContent({
         </div>
 
         <div className="flex flex-wrap gap-4 mb-8">
-          {/* Free / Paid dropdown */}
+          {/* Combined Access + Content Type dropdown */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-gray-500">
-              {t('labelAccess')}
+              {t('labelAccess')} + {t('labelType')}
             </label>
             <select
-              value={filters.access}
+              value={combinedFilterValue}
               onChange={(e) => {
-                updateBrowseUrl({
-                  access: e.target.value as BrowseAccessFilter,
+                const value = e.target.value as CombinedFilterValue;
+                const next: { access: BrowseAccessFilter; type: BrowseTypeFilter; page: number } = {
+                  access: 'all',
+                  type: 'all',
                   page: 1,
+                };
+                if (value === 'movie') next.type = 'movie';
+                if (value === 'series') next.type = 'series';
+                if (value === 'free') next.access = 'free';
+                if (value === 'paid') next.access = 'paid';
+                if (value === 'movie-free') {
+                  next.type = 'movie';
+                  next.access = 'free';
+                }
+                if (value === 'movie-paid') {
+                  next.type = 'movie';
+                  next.access = 'paid';
+                }
+                if (value === 'series-free') {
+                  next.type = 'series';
+                  next.access = 'free';
+                }
+                if (value === 'series-paid') {
+                  next.type = 'series';
+                  next.access = 'paid';
+                }
+                updateBrowseUrl({
+                  access: next.access,
+                  type: next.type,
+                  page: next.page,
                 });
               }}
-              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-red/60 focus:border-brand-red/60 min-w-[160px]"
+              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-red/60 focus:border-brand-red/60 min-w-[220px]"
             >
-              <option value="all">{t('filterAllAccess')}</option>
-              <option value="free">{t('filterFree')}</option>
-              <option value="paid">{t('filterPaid')}</option>
-            </select>
-          </div>
-
-          {/* Movie / Series dropdown */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-500">
-              {t('labelType')}
-            </label>
-            <select
-              value={filters.type}
-              onChange={(e) => {
-                updateBrowseUrl({
-                  type: e.target.value as BrowseTypeFilter,
-                  page: 1,
-                });
-              }}
-              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-red/60 focus:border-brand-red/60 min-w-[160px]"
-            >
-              <option value="all">{t('filterAllTypes')}</option>
+              <option value="all">{t('filterAllAccess')} + {t('filterAllTypes')}</option>
               <option value="movie">{t('filterMovies')}</option>
               <option value="series">{t('filterSeries')}</option>
+              <option value="free">{t('filterFree')}</option>
+              <option value="paid">{t('filterPaid')}</option>
+              <option value="movie-free">{t('filterMovies')} + {t('filterFree')}</option>
+              <option value="movie-paid">{t('filterMovies')} + {t('filterPaid')}</option>
+              <option value="series-free">{t('filterSeries')} + {t('filterFree')}</option>
+              <option value="series-paid">{t('filterSeries')} + {t('filterPaid')}</option>
             </select>
           </div>
 
