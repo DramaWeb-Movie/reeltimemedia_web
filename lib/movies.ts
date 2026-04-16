@@ -15,6 +15,9 @@ export interface MovieRow {
   release_date: string | null;
   duration: number | null;
   thumbnail_url: string | null;
+  thumnail_url?: string | null;
+  cover_url?: string | null;
+  is_promotion_hero?: boolean | null;
   video_url: string | null;
   hls_manifest_url?: string | null;
   subtitle_url: string | null;
@@ -58,6 +61,8 @@ export interface FeaturedMovie extends MovieCard {
   description: string;
   genres: string[];
   year: string;
+  /** Preferred background image for hero-style sections */
+  bannerImage?: string;
 }
 
 const PLACEHOLDER_IMAGE = 'https://placehold.co/400x600/1a1a1a/808080?text=No+Image';
@@ -81,13 +86,21 @@ interface SeriesEpisodeRow {
   hls_manifest_url?: string | null;
 }
 
-// Columns needed for card rendering — avoids fetching unused heavy fields
-const CARD_COLUMNS =
+// Preferred schema includes both legacy and newer image columns.
+const CARD_COLUMNS_PREFERRED =
+  'id, title, title_kh, description, genre, release_date, thumbnail_url, thumnail_url, cover_url, type, price, free_episodes_count, total_episodes';
+const CARD_COLUMNS_LEGACY =
   'id, title, title_kh, description, genre, release_date, thumbnail_url, type, price, free_episodes_count, total_episodes';
+const CARD_COLUMNS_TYPO =
+  'id, title, title_kh, description, genre, release_date, thumnail_url, cover_url, type, price, free_episodes_count, total_episodes';
 
-// Columns needed for the full detail / watch page (omit DB columns that may not exist in every project, e.g. content_rating)
-const DETAIL_COLUMNS =
+// Columns needed for the full detail / watch page.
+const DETAIL_COLUMNS_PREFERRED =
+  'id, title, title_kh, description, genre, release_date, duration, thumbnail_url, thumnail_url, cover_url, video_url, hls_manifest_url, status, type, price, free_episodes_count, subscription_plan_id, total_episodes, cast, trailer_url';
+const DETAIL_COLUMNS_LEGACY =
   'id, title, title_kh, description, genre, release_date, duration, thumbnail_url, video_url, hls_manifest_url, status, type, price, free_episodes_count, subscription_plan_id, total_episodes, cast, trailer_url';
+const DETAIL_COLUMNS_TYPO =
+  'id, title, title_kh, description, genre, release_date, duration, thumnail_url, cover_url, video_url, hls_manifest_url, status, type, price, free_episodes_count, subscription_plan_id, total_episodes, cast, trailer_url';
 
 export type BrowseAccessFilter = 'all' | 'free' | 'paid';
 export type BrowseTypeFilter = 'all' | 'movie' | 'series';
@@ -155,7 +168,10 @@ function rowToCard(row: MovieRow): MovieCard {
       ? Math.max(1, row.total_episodes ?? 1)
       : 1;
   const image =
-    row.thumbnail_url?.trim() || PLACEHOLDER_IMAGE;
+    row.cover_url?.trim()
+    || row.thumbnail_url?.trim()
+    || row.thumnail_url?.trim()
+    || PLACEHOLDER_IMAGE;
   const year = row.release_date
     ? new Date(row.release_date).getFullYear().toString()
     : undefined;
@@ -179,8 +195,30 @@ function rowToCard(row: MovieRow): MovieCard {
   };
 }
 
+function getPosterUrl(row: MovieRow): string {
+  return row.cover_url?.trim() || row.thumbnail_url?.trim() || row.thumnail_url?.trim() || PLACEHOLDER_IMAGE;
+}
+
+function getCoverUrl(row: MovieRow): string | undefined {
+  return row.thumbnail_url?.trim() || row.thumnail_url?.trim() || row.cover_url?.trim() || undefined;
+}
+
+async function selectMoviesWithFallback<T>(
+  builder: (columns: string) => Promise<{ data: T[] | null; error: unknown; count?: number | null }>,
+  columns: { preferred: string; legacy: string; typo: string }
+): Promise<{ data: T[] | null; error: unknown; count?: number | null }> {
+  const preferred = await builder(columns.preferred);
+  if (!preferred.error) return preferred;
+
+  const legacy = await builder(columns.legacy);
+  if (!legacy.error) return legacy;
+
+  return builder(columns.typo);
+}
+
 function rowToFeatured(row: MovieRow): FeaturedMovie {
   const card = rowToCard(row);
+  const bannerImage = getCoverUrl(row) || card.image;
   return {
     ...card,
     description: row.description ?? '',
@@ -190,6 +228,7 @@ function rowToFeatured(row: MovieRow): FeaturedMovie {
     year: row.release_date
       ? new Date(row.release_date).getFullYear().toString()
       : new Date().getFullYear().toString(),
+    bannerImage,
   };
 }
 
@@ -215,15 +254,20 @@ export async function getMovies(options?: {
   return unstable_cache(
     async () => {
       const supabase = createAnonClient();
-      let query = supabase
-        .from('movies')
-        .select(CARD_COLUMNS)
-        .order('created_at', { ascending: false })
-        .eq('status', status);
-      if (type !== 'all') {
-        query = query.eq('type', type);
-      }
-      const { data, error } = await query;
+      const { data, error } = await selectMoviesWithFallback<MovieRow>(
+        (columns) => {
+          let query = supabase
+            .from('movies')
+            .select(columns)
+            .order('created_at', { ascending: false })
+            .eq('status', status);
+          if (type !== 'all') {
+            query = query.eq('type', type);
+          }
+          return query;
+        },
+        { preferred: CARD_COLUMNS_PREFERRED, legacy: CARD_COLUMNS_LEGACY, typo: CARD_COLUMNS_TYPO }
+      );
       if (error) {
         console.error('getMovies error:', error);
         return [];
@@ -252,17 +296,21 @@ export async function getMoviesPage(options: {
   return unstable_cache(
     async () => {
       const supabase = createAnonClient();
-      let query = supabase
-        .from('movies')
-        // `planned` count is much cheaper than exact on large datasets.
-        .select(CARD_COLUMNS, { count: 'planned' })
-        .order('created_at', { ascending: false })
-        .eq('status', status);
-      if (type !== 'all') {
-        query = query.eq('type', type);
-      }
-
-      const { data, error, count } = await query.range(from, to);
+      const { data, error, count } = await selectMoviesWithFallback<MovieRow>(
+        (columns) => {
+          let query = supabase
+            .from('movies')
+            // `planned` count is much cheaper than exact on large datasets.
+            .select(columns, { count: 'planned' })
+            .order('created_at', { ascending: false })
+            .eq('status', status);
+          if (type !== 'all') {
+            query = query.eq('type', type);
+          }
+          return query.range(from, to);
+        },
+        { preferred: CARD_COLUMNS_PREFERRED, legacy: CARD_COLUMNS_LEGACY, typo: CARD_COLUMNS_TYPO }
+      );
 
       if (error) {
         console.error('getMoviesPage error:', error);
@@ -326,40 +374,44 @@ export async function getBrowseMoviesPage(options: BrowseFilters & {
   return unstable_cache(
     async () => {
       const supabase = createAnonClient();
-      let query = supabase
-        .from('movies')
-        .select(CARD_COLUMNS, { count: 'planned' })
-        .eq('status', 'published')
-        .order('created_at', { ascending: false });
+      const { data, error, count } = await selectMoviesWithFallback<MovieRow>(
+        (columns) => {
+          let query = supabase
+            .from('movies')
+            .select(columns, { count: 'planned' })
+            .eq('status', 'published')
+            .order('created_at', { ascending: false });
 
-      if (type === 'movie') {
-        query = query.eq('type', 'single');
-      } else if (type === 'series') {
-        query = query.eq('type', 'series');
-      }
+          if (type === 'movie') {
+            query = query.eq('type', 'single');
+          } else if (type === 'series') {
+            query = query.eq('type', 'series');
+          }
 
-      if (genre) {
-        query = query.ilike('genre', `%${escapeForILike(genre)}%`);
-      }
+          if (genre) {
+            query = query.ilike('genre', `%${escapeForILike(genre)}%`);
+          }
 
-      const accessExpr = buildBrowseAccessExpression(type, access);
-      if (q) {
-        const likeQ = escapeForILike(q);
-        if (accessExpr) {
-          query = query.or(
-            [
-              `and(title.ilike.%${likeQ}%,${wrapLogicalGroup(accessExpr.root)})`,
-              `and(title_kh.ilike.%${likeQ}%,${wrapLogicalGroup(accessExpr.root)})`,
-            ].join(',')
-          );
-        } else {
-          query = query.or(`title.ilike.%${likeQ}%,title_kh.ilike.%${likeQ}%`);
-        }
-      } else if (accessExpr) {
-        query = query.or(accessExpr.root);
-      }
-
-      const { data, error, count } = await query.range(from, to);
+          const accessExpr = buildBrowseAccessExpression(type, access);
+          if (q) {
+            const likeQ = escapeForILike(q);
+            if (accessExpr) {
+              query = query.or(
+                [
+                  `and(title.ilike.%${likeQ}%,${wrapLogicalGroup(accessExpr.root)})`,
+                  `and(title_kh.ilike.%${likeQ}%,${wrapLogicalGroup(accessExpr.root)})`,
+                ].join(',')
+              );
+            } else {
+              query = query.or(`title.ilike.%${likeQ}%,title_kh.ilike.%${likeQ}%`);
+            }
+          } else if (accessExpr) {
+            query = query.or(accessExpr.root);
+          }
+          return query.range(from, to);
+        },
+        { preferred: CARD_COLUMNS_PREFERRED, legacy: CARD_COLUMNS_LEGACY, typo: CARD_COLUMNS_TYPO }
+      );
 
       if (error) {
         console.error('getBrowseMoviesPage error:', error);
@@ -394,12 +446,30 @@ export async function getMovieById(id: string): Promise<Drama | null> {
   return unstable_cache(
     async () => {
       const supabase = createAnonClient();
-      const { data: row, error } = await supabase
-        .from('movies')
-        .select(DETAIL_COLUMNS)
-        .eq('id', id)
-        .eq('status', 'published')
-        .single();
+      const { data: row, error } = await (async () => {
+        const preferred = await supabase
+          .from('movies')
+          .select(DETAIL_COLUMNS_PREFERRED)
+          .eq('id', id)
+          .eq('status', 'published')
+          .single();
+        if (!preferred.error) return preferred;
+
+        const legacy = await supabase
+          .from('movies')
+          .select(DETAIL_COLUMNS_LEGACY)
+          .eq('id', id)
+          .eq('status', 'published')
+          .single();
+        if (!legacy.error) return legacy;
+
+        return supabase
+          .from('movies')
+          .select(DETAIL_COLUMNS_TYPO)
+          .eq('id', id)
+          .eq('status', 'published')
+          .single();
+      })();
 
       if (error || !row) {
         const code = (error as unknown as Record<string, unknown> | null)?.code;
@@ -412,7 +482,8 @@ export async function getMovieById(id: string): Promise<Drama | null> {
       const contentType: ContentType = r.type === 'series' ? 'series' : 'movie';
       const totalEpisodes =
         contentType === 'series' ? Math.max(1, r.total_episodes ?? 1) : 1;
-      const posterUrl = r.thumbnail_url?.trim() || PLACEHOLDER_IMAGE;
+      const posterUrl = getPosterUrl(r);
+      const coverUrl = getCoverUrl(r);
 
       const [planResult, seriesEpisodesResult] = await Promise.all([
         r.subscription_plan_id
@@ -486,7 +557,7 @@ export async function getMovieById(id: string): Promise<Drama | null> {
         titleKh: r.title_kh?.trim() || undefined,
         description: r.description ?? '',
         posterUrl,
-        bannerUrl: r.thumbnail_url?.trim() || posterUrl,
+        bannerUrl: coverUrl || posterUrl,
         releaseYear: r.release_date
           ? new Date(r.release_date).getFullYear()
           : new Date().getFullYear(),
@@ -515,12 +586,15 @@ export async function getFeaturedMovies(limit = 10): Promise<FeaturedMovie[]> {
   return unstable_cache(
     async () => {
       const supabase = createAnonClient();
-      const { data, error } = await supabase
-        .from('movies')
-        .select(CARD_COLUMNS)
-        .eq('status', 'published')
-        .order('created_at', { ascending: false })
-        .limit(limit);
+      const { data, error } = await selectMoviesWithFallback<MovieRow>(
+        (columns) => supabase
+          .from('movies')
+          .select(columns)
+          .eq('status', 'published')
+          .order('created_at', { ascending: false })
+          .limit(limit),
+        { preferred: CARD_COLUMNS_PREFERRED, legacy: CARD_COLUMNS_LEGACY, typo: CARD_COLUMNS_TYPO }
+      );
 
       if (error) {
         console.error('getFeaturedMovies error:', error);
@@ -529,6 +603,33 @@ export async function getFeaturedMovies(limit = 10): Promise<FeaturedMovie[]> {
       return (data as MovieRow[]).map(rowToFeatured);
     },
     ['featured-movies', String(limit)],
+    { revalidate: 60 }
+  )();
+}
+
+/** Fetch movies marked for promotion hero carousel. */
+export async function getPromotionHeroMovies(limit = 10): Promise<FeaturedMovie[]> {
+  return unstable_cache(
+    async () => {
+      const supabase = createAnonClient();
+      const { data, error } = await selectMoviesWithFallback<MovieRow>(
+        (columns) => supabase
+          .from('movies')
+          .select(columns)
+          .eq('status', 'published')
+          .eq('is_promotion_hero', true)
+          .order('created_at', { ascending: false })
+          .limit(limit),
+        { preferred: CARD_COLUMNS_PREFERRED, legacy: CARD_COLUMNS_LEGACY, typo: CARD_COLUMNS_TYPO }
+      );
+
+      if (error) {
+        console.error('getPromotionHeroMovies error:', error);
+        return [];
+      }
+      return (data as MovieRow[]).map(rowToFeatured);
+    },
+    ['promotion-hero-movies', String(limit)],
     { revalidate: 60 }
   )();
 }
@@ -552,33 +653,40 @@ export async function getRecommendedMovies(
     async () => {
       const supabase = createAnonClient();
 
-      let query = supabase
-        .from('movies')
-        .select(CARD_COLUMNS)
-        .eq('status', 'published')
-        .eq('type', dbType)
-        .neq('id', excludeId)
-        .order('created_at', { ascending: false })
-        .limit(limit);
+      const { data, error } = await selectMoviesWithFallback<MovieRow>(
+        (columns) => {
+          let query = supabase
+            .from('movies')
+            .select(columns)
+            .eq('status', 'published')
+            .eq('type', dbType)
+            .neq('id', excludeId)
+            .order('created_at', { ascending: false })
+            .limit(limit);
 
-      // Filter by genre overlap in the DB so we only fetch relevant rows
-      if (genres.length > 0) {
-        const genreFilters = genres.map((g) => `genre.ilike.%${g}%`).join(',');
-        query = query.or(genreFilters);
-      }
-
-      const { data, error } = await query;
+          // Filter by genre overlap in the DB so we only fetch relevant rows
+          if (genres.length > 0) {
+            const genreFilters = genres.map((g) => `genre.ilike.%${g}%`).join(',');
+            query = query.or(genreFilters);
+          }
+          return query;
+        },
+        { preferred: CARD_COLUMNS_PREFERRED, legacy: CARD_COLUMNS_LEGACY, typo: CARD_COLUMNS_TYPO }
+      );
 
       // Fallback: if no genre matches, return any recent titles of the same type
       if (error || !data?.length) {
-        const { data: fallback } = await supabase
-          .from('movies')
-          .select(CARD_COLUMNS)
-          .eq('status', 'published')
-          .eq('type', dbType)
-          .neq('id', excludeId)
-          .order('created_at', { ascending: false })
-          .limit(limit);
+        const { data: fallback } = await selectMoviesWithFallback<MovieRow>(
+          (columns) => supabase
+            .from('movies')
+            .select(columns)
+            .eq('status', 'published')
+            .eq('type', dbType)
+            .neq('id', excludeId)
+            .order('created_at', { ascending: false })
+            .limit(limit),
+          { preferred: CARD_COLUMNS_PREFERRED, legacy: CARD_COLUMNS_LEGACY, typo: CARD_COLUMNS_TYPO }
+        );
         return ((fallback ?? []) as MovieRow[]).map(rowToCard);
       }
 

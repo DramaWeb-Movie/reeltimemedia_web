@@ -10,6 +10,8 @@ type MovieRow = {
   title: string;
   title_kh?: string | null;
   thumbnail_url: string | null;
+  thumnail_url?: string | null;
+  cover_url?: string | null;
   release_date: string | null;
   genre: string | null;
   country: string | null;
@@ -55,20 +57,43 @@ export async function GET() {
     return NextResponse.json({ library: [] });
   }
 
-  const { data: movieRows, error: moviesError } = await supabase
-    .from('movies')
-    .select('id, title, title_kh, thumbnail_url, release_date, genre, country')
-    .in('id', contentIds)
-    .eq('status', 'published');
+  const { data: movieRows, error: moviesError } = await (async () => {
+    const preferred = await supabase
+      .from('movies')
+      .select('id, title, title_kh, thumbnail_url, thumnail_url, cover_url, release_date, genre, country')
+      .in('id', contentIds)
+      .eq('status', 'published');
+    if (!preferred.error) return preferred;
+
+    const legacy = await supabase
+      .from('movies')
+      .select('id, title, title_kh, thumbnail_url, release_date, genre, country')
+      .in('id', contentIds)
+      .eq('status', 'published');
+    if (!legacy.error) return legacy;
+
+    return supabase
+      .from('movies')
+      .select('id, title, title_kh, thumnail_url, cover_url, release_date, genre, country')
+      .in('id', contentIds)
+      .eq('status', 'published');
+  })();
 
   let rows: MovieRow[] = movieRows ?? [];
   if (moviesError) {
     const { data: fallback } = await supabase
       .from('movies')
-      .select('id, title, title_kh, thumbnail_url')
+      .select('id, title, title_kh, thumbnail_url, thumnail_url, cover_url')
       .in('id', contentIds);
     rows = (fallback ?? []).map(
-      (r: { id: string; title: string; title_kh?: string | null; thumbnail_url: string | null }) => ({
+      (r: {
+        id: string;
+        title: string;
+        title_kh?: string | null;
+        thumbnail_url: string | null;
+        thumnail_url?: string | null;
+        cover_url?: string | null;
+      }) => ({
         ...r,
         release_date: null,
         genre: null,
@@ -90,7 +115,7 @@ export async function GET() {
       title: row.title,
       titleKh: row.title_kh?.trim() || undefined,
       description: '',
-      posterUrl: row.thumbnail_url?.trim() || PLACEHOLDER,
+      posterUrl: row.cover_url?.trim() || row.thumbnail_url?.trim() || row.thumnail_url?.trim() || PLACEHOLDER,
       releaseYear: row.release_date
         ? new Date(row.release_date).getFullYear()
         : new Date().getFullYear(),
