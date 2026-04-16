@@ -7,7 +7,8 @@
     "app": "កម្មវិធី",
     "language": "ភាសា",
     "selectLanguage": "ជ្រើសរើសភាសា",
-    "notifications": "ការជូនដំណឹង",
+    "themeDark": "ប្តូរទៅរបៀបងងឹត",
+    "themeLight": "ប្តូរទៅរបៀបភ្លឺ",
     "toggleMenu": "បើក/បិទម៉ឺនុយ"
   },
   "auth": {

@@ -12,6 +12,22 @@ const CARD_COLUMNS_TYPO =
 
 const PLACEHOLDER_IMAGE = 'https://placehold.co/400x600/1a1a1a/808080?text=No+Image';
 
+type SearchMovieRow = {
+  id: string;
+  title: string;
+  title_kh?: string | null;
+  description?: string | null;
+  genre?: string | null;
+  release_date?: string | null;
+  thumbnail_url?: string | null;
+  thumnail_url?: string | null;
+  cover_url?: string | null;
+  type?: string | null;
+  price?: number | null;
+  free_episodes_count?: number | null;
+  total_episodes?: number | null;
+};
+
 function normalizeSearchQuery(input: string): string {
   return input
     .normalize('NFKC')
@@ -85,7 +101,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Search failed' }, { status: 500 });
   }
 
-  const results: MovieCard[] = (data ?? []).map((row) => {
+  const rows = (data ?? []) as unknown as SearchMovieRow[];
+  const results: MovieCard[] = rows.map((row) => {
     const contentType = row.type === 'series' ? 'series' : 'movie';
     const episodes = contentType === 'series' ? Math.max(1, row.total_episodes ?? 1) : 1;
     const genres = row.genre

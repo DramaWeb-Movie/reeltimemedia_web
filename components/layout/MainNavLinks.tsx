@@ -17,7 +17,7 @@ export default function MainNavLinks() {
   const t = useTranslations('nav');
 
   return (
-    <div className="hidden lg:flex items-center gap-1 bg-gray-100/80 rounded-full px-2 py-1 backdrop-blur-sm border border-gray-200/70">
+    <div className="hidden lg:flex items-center gap-1 bg-gray-100/80 rounded-full px-2 py-1 backdrop-blur-sm border border-gray-200/70 dark:bg-gray-800/80 dark:border-gray-700/70">
       {ITEMS.map(({ href, key }) => {
         const active = isMainNavActive(pathname, href);
         return (
@@ -27,8 +27,8 @@ export default function MainNavLinks() {
             aria-current={active ? 'page' : undefined}
             className={
               active
-                ? 'px-5 py-2.5 text-sm font-semibold text-brand-red bg-white rounded-full shadow-sm ring-1 ring-gray-200/90 transition-colors'
-                : 'px-5 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors rounded-full hover:bg-gray-100'
+                ? 'px-5 py-2.5 text-sm font-semibold text-brand-red bg-white rounded-full shadow-sm ring-1 ring-gray-200/90 transition-colors dark:bg-gray-900 dark:ring-gray-700'
+                : 'px-5 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors rounded-full hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-700/80'
             }
           >
             {t(key)}

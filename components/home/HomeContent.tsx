@@ -295,7 +295,7 @@ export default function HomeContent({ featuredItems, promotionItems }: HomeConte
                 <div className="mt-auto pt-7 flex flex-col sm:flex-row gap-3">
                   <Link
                     href={primaryCtaHref}
-                    className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold bg-white text-[#C4132E] hover:bg-white/90 transition-colors shadow-lg shadow-black/15"
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold bg-white text-[#C4132E] hover:bg-white/90 dark:!bg-white dark:!text-[#C4132E] dark:hover:!bg-white/90 transition-colors shadow-lg shadow-black/15"
                   >
                     <FiCheckCircle />
                     {primaryCtaLabel}
@@ -344,7 +344,7 @@ export default function HomeContent({ featuredItems, promotionItems }: HomeConte
                       key={slide.id}
                       type="button"
                       onClick={() => setActivePromoIndex(idx)}
-                      className={`h-2.5 rounded-full transition-all ${idx === activePromoIndex ? 'w-7 bg-white' : 'w-2.5 bg-white/45 hover:bg-white/80'}`}
+                      className={`h-2.5 rounded-full transition-all ${idx === activePromoIndex ? 'w-7 bg-white dark:!bg-white' : 'w-2.5 bg-white/45 hover:bg-white/80'}`}
                       aria-label={`Go to promo slide ${idx + 1}`}
                     />
                   ))}

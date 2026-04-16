@@ -18,10 +18,10 @@ export default async function LogoAndNav() {
         </div>
         <div className="flex flex-col">
           <span className="text-xl md:text-2xl font-bold tracking-tight">
-            <span className="text-black">Reel</span>
+            <span className="text-gray-900 dark:text-white">Reel</span>
             <span className="gradient-text">Time</span>
           </span>
-          <span className="text-[10px] md:text-xs text-[#B3B3B3] tracking-[0.2em] uppercase">Media</span>
+          <span className="text-[10px] md:text-xs text-[#B3B3B3] dark:text-gray-500 tracking-[0.2em] uppercase">Media</span>
         </div>
       </Link>
 

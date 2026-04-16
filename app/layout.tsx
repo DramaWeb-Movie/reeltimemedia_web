@@ -37,9 +37,16 @@ export default async function RootLayout({
   const messages = await getMessages();
 
   return (
-    <html lang={locale}>
+    <html lang={locale} suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var k='reeltimemedia-theme';var v=localStorage.getItem(k);var d=v==='dark'||(v!=='light'&&window.matchMedia('(prefers-color-scheme:dark)').matches);document.documentElement.classList.toggle('dark',d);}catch(e){}})();`,
+          }}
+        />
+      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${notoSansKhmer.variable} antialiased flex flex-col min-h-screen bg-[#F9FAFB] text-[#111827]`}
+        className={`${geistSans.variable} ${geistMono.variable} ${notoSansKhmer.variable} antialiased flex flex-col min-h-screen bg-[var(--background)] text-[var(--foreground)] transition-colors duration-200`}
       >
         <NextIntlClientProvider messages={messages}>
           <Header />

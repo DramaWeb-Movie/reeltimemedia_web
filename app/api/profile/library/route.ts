@@ -9,7 +9,7 @@ type MovieRow = {
   id: string;
   title: string;
   title_kh?: string | null;
-  thumbnail_url: string | null;
+  thumbnail_url?: string | null;
   thumnail_url?: string | null;
   cover_url?: string | null;
   release_date: string | null;

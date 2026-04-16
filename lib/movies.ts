@@ -204,16 +204,16 @@ function getCoverUrl(row: MovieRow): string | undefined {
 }
 
 async function selectMoviesWithFallback<T>(
-  builder: (columns: string) => Promise<{ data: T[] | null; error: unknown; count?: number | null }>,
+  builder: (columns: string) => unknown,
   columns: { preferred: string; legacy: string; typo: string }
 ): Promise<{ data: T[] | null; error: unknown; count?: number | null }> {
-  const preferred = await builder(columns.preferred);
+  const preferred = await builder(columns.preferred) as { data: T[] | null; error: unknown; count?: number | null };
   if (!preferred.error) return preferred;
 
-  const legacy = await builder(columns.legacy);
+  const legacy = await builder(columns.legacy) as { data: T[] | null; error: unknown; count?: number | null };
   if (!legacy.error) return legacy;
 
-  return builder(columns.typo);
+  return await builder(columns.typo) as { data: T[] | null; error: unknown; count?: number | null };
 }
 
 function rowToFeatured(row: MovieRow): FeaturedMovie {
