@@ -64,6 +64,7 @@ export default function HlsPlayer({
   const [showQualityMenu, setShowQualityMenu] = useState(false);
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   const [isBuffering, setIsBuffering] = useState(() => Boolean(manifestUrl || fallbackUrl));
+  const [bufferedPct, setBufferedPct] = useState(0);
 
   const scheduleQualityModeReset = useCallback((mode: QualityMode) => {
     queueMicrotask(() => {
@@ -108,7 +109,21 @@ export default function HlsPlayer({
     video.load();
 
     if (manifestUrl && Hls.isSupported()) {
-      const hls = new Hls({ enableWorker: true });
+      const hls = new Hls({
+        enableWorker: true,
+        // Start at lowest quality so slow connections begin playing immediately
+        startLevel: -1,
+        abrEwmaDefaultEstimate: 500_000, // assume 500 kbps until measured
+        // Buffer aggressively so brief connection drops don't stall playback
+        maxBufferLength: 60,
+        maxMaxBufferLength: 120,
+        // Give more time for slow connections to fetch fragments and manifests
+        fragLoadingTimeOut: 30_000,
+        manifestLoadingTimeOut: 20_000,
+        levelLoadingTimeOut: 20_000,
+        fragLoadingMaxRetry: 4,
+        fragLoadingRetryDelay: 1_000,
+      });
       hlsRef.current = hls;
       hls.attachMedia(video);
 
@@ -183,6 +198,11 @@ export default function HlsPlayer({
 
     const onTimeUpdate = () => setCurrentTime(video.currentTime || 0);
     const onLoadedMetadata = () => setDuration(video.duration || 0);
+    const onProgress = () => {
+      const d = video.duration;
+      if (!d || !video.buffered.length) return;
+      setBufferedPct((video.buffered.end(video.buffered.length - 1) / d) * 100);
+    };
     const onLoadedData = () => {
       setIsPlayerReady(true);
       setIsBuffering(false);
@@ -233,6 +253,7 @@ export default function HlsPlayer({
     };
 
     video.addEventListener('timeupdate', onTimeUpdate);
+    video.addEventListener('progress', onProgress);
     video.addEventListener('loadedmetadata', onLoadedMetadata);
     video.addEventListener('loadeddata', onLoadedData);
     video.addEventListener('canplay', onCanPlay);
@@ -248,6 +269,7 @@ export default function HlsPlayer({
 
     return () => {
       video.removeEventListener('timeupdate', onTimeUpdate);
+      video.removeEventListener('progress', onProgress);
       video.removeEventListener('loadedmetadata', onLoadedMetadata);
       video.removeEventListener('loadeddata', onLoadedData);
       video.removeEventListener('canplay', onCanPlay);
@@ -444,7 +466,12 @@ export default function HlsPlayer({
           onTouchStart={handleSeekPointerDown}
         >
           {/* Track */}
-          <div className="absolute w-full h-1 bg-white/30 rounded-full" />
+          <div className="absolute w-full h-1 bg-white/20 rounded-full" />
+          {/* Buffered fill */}
+          <div
+            className="absolute h-1 bg-white/40 rounded-full pointer-events-none"
+            style={{ width: `${bufferedPct}%` }}
+          />
           {/* Played fill */}
           <div
             className="absolute h-1 bg-brand-red rounded-full pointer-events-none"

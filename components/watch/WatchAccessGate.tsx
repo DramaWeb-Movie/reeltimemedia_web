@@ -13,10 +13,13 @@ interface WatchAccessGateProps {
   title: string;
   episodeNum?: number;
   isSinglePart: boolean;
+  totalEpisodes?: number;
   freeEpisodesCount?: number;
   /** When true, movie is free and anyone (including guests) can watch */
   isFreeMovie?: boolean;
 }
+
+type SessionData = { playbackUrl: string; hlsManifestUrl?: string; expiresInSeconds: number };
 
 export default function WatchAccessGate({
   contentId,
@@ -24,6 +27,7 @@ export default function WatchAccessGate({
   title,
   episodeNum,
   isSinglePart,
+  totalEpisodes,
   freeEpisodesCount = 0,
   isFreeMovie = false,
 }: WatchAccessGateProps) {
@@ -41,6 +45,8 @@ export default function WatchAccessGate({
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastErrorRetryAtRef = useRef(0);
   const errorRetryInFlightRef = useRef(false);
+  // Prefetched sessions keyed by episode number — populated while current ep plays
+  const prefetchCacheRef = useRef<Map<number, SessionData>>(new Map());
 
   const clearRefreshTimer = useCallback(() => {
     if (refreshTimerRef.current) {
@@ -49,27 +55,74 @@ export default function WatchAccessGate({
     }
   }, []);
 
-  const fetchPlaybackSession = useCallback(
-    async (opts?: { afterError?: boolean }) => {
-      setSessionLoading(true);
-      if (!opts?.afterError) {
-        setSessionError(false);
-      }
+  const fetchSessionForEp = useCallback(
+    async (ep: number): Promise<SessionData | null> => {
       try {
         const res = await fetch('/api/watch/session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ contentId, ep: currentEp }),
+          body: JSON.stringify({ contentId, ep }),
         });
         const data = (await res.json().catch(() => null)) as {
           playbackUrl?: string;
           hlsManifestUrl?: string;
           expiresInSeconds?: number;
-          error?: string;
         } | null;
+        if (!res.ok || !data?.playbackUrl) return null;
+        return {
+          playbackUrl: data.playbackUrl,
+          hlsManifestUrl: data.hlsManifestUrl,
+          expiresInSeconds: typeof data.expiresInSeconds === 'number' && data.expiresInSeconds > 0
+            ? data.expiresInSeconds : 900,
+        };
+      } catch {
+        return null;
+      }
+    },
+    [contentId]
+  );
 
-        if (!res.ok || !data?.playbackUrl) {
+  const prefetchNextEpisode = useCallback(
+    (currentEpNum: number) => {
+      if (isSinglePart) return;
+      const nextEp = currentEpNum + 1;
+      if (totalEpisodes && nextEp > totalEpisodes) return;
+      if (prefetchCacheRef.current.has(nextEp)) return;
+      // Fire-and-forget: silently cache the next episode's session
+      void fetchSessionForEp(nextEp).then((data) => {
+        if (data) prefetchCacheRef.current.set(nextEp, data);
+      });
+    },
+    [isSinglePart, totalEpisodes, fetchSessionForEp]
+  );
+
+  const fetchPlaybackSession = useCallback(
+    async (opts?: { afterError?: boolean }) => {
+      // Use prefetched session if available (skips network round-trip)
+      const cached = !opts?.afterError ? prefetchCacheRef.current.get(currentEp) : undefined;
+      if (cached) {
+        prefetchCacheRef.current.delete(currentEp);
+        setPlaybackUrl(cached.playbackUrl);
+        setHlsManifestUrl(cached.hlsManifestUrl ?? null);
+        setSessionError(false);
+        setAccessDenied(false);
+        setDeniedByAuth(false);
+        return { ok: true as const, expiresInSeconds: cached.expiresInSeconds, denied: false as const };
+      }
+
+      setSessionLoading(true);
+      if (!opts?.afterError) setSessionError(false);
+      try {
+        const data = await fetchSessionForEp(currentEp);
+        if (!data) {
+          // Re-fetch to get the proper status code for error classification
+          const res = await fetch('/api/watch/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ contentId, ep: currentEp }),
+          });
           setPlaybackUrl(null);
           setHlsManifestUrl(null);
           const denied = res.status === 401 || res.status === 403;
@@ -78,17 +131,12 @@ export default function WatchAccessGate({
           setSessionError(!denied);
           return { ok: false as const, expiresInSeconds: 0, denied };
         }
-
         setPlaybackUrl(data.playbackUrl);
         setHlsManifestUrl(data.hlsManifestUrl ?? null);
         setSessionError(false);
         setAccessDenied(false);
         setDeniedByAuth(false);
-        const expiresInSeconds =
-          typeof data.expiresInSeconds === 'number' && data.expiresInSeconds > 0
-            ? data.expiresInSeconds
-            : 900;
-        return { ok: true as const, expiresInSeconds, denied: false as const };
+        return { ok: true as const, expiresInSeconds: data.expiresInSeconds, denied: false as const };
       } catch {
         setPlaybackUrl(null);
         setHlsManifestUrl(null);
@@ -98,7 +146,7 @@ export default function WatchAccessGate({
         setSessionLoading(false);
       }
     },
-    [contentId, currentEp]
+    [contentId, currentEp, fetchSessionForEp]
   );
 
   const scheduleProactiveRefresh = useCallback(
@@ -123,6 +171,7 @@ export default function WatchAccessGate({
       if (cancelled) return;
       if (result.ok) {
         scheduleProactiveRefresh(result.expiresInSeconds);
+        prefetchNextEpisode(currentEp);
       }
     })();
     return () => {
@@ -135,6 +184,7 @@ export default function WatchAccessGate({
     fetchPlaybackSession,
     scheduleProactiveRefresh,
     clearRefreshTimer,
+    prefetchNextEpisode,
     contentType,
     isFreeEpisode,
     isFreeMovie,

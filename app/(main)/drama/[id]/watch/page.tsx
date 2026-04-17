@@ -198,6 +198,7 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
                 title={title}
                 episodeNum={episodeNum}
                 isSinglePart={isSinglePart}
+                totalEpisodes={totalEpisodes}
                 freeEpisodesCount={freeEpisodesCount}
                 isFreeMovie={isFreeMovie}
               />
