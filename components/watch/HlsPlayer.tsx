@@ -13,6 +13,8 @@ interface HlsPlayerProps {
   title?: string;
   autoPlay?: boolean;
   onError?: () => void;
+  /** Show the loading overlay even before any URL is available (e.g. session fetch in progress) */
+  isLoading?: boolean;
 }
 
 function formatTime(seconds: number): string {
@@ -40,6 +42,7 @@ export default function HlsPlayer({
   title,
   autoPlay = true,
   onError,
+  isLoading = false,
 }: HlsPlayerProps) {
   const t = useTranslations('watch');
   const playerRef = useRef<HTMLDivElement | null>(null);
@@ -75,6 +78,17 @@ export default function HlsPlayer({
     const id = setTimeout(() => setShowBufferingSpinner(true), 400);
     return () => clearTimeout(id);
   }, [isPlayerReady, isBuffering]);
+
+  // Browsers block autoplay with audio — retry muted so playback always starts
+  async function tryAutoPlay(video: HTMLVideoElement) {
+    try {
+      await video.play();
+    } catch {
+      video.muted = true;
+      setIsMuted(true);
+      void video.play().catch(() => null);
+    }
+  }
 
   const scheduleQualityModeReset = useCallback((mode: QualityMode) => {
     queueMicrotask(() => {
@@ -159,7 +173,7 @@ export default function HlsPlayer({
         const sorted = withIndex.map(({ index, label }) => ({ index, label }));
         setQualityLevels(sorted);
         setQualityMode(levels.length > 1 ? 'hls-multi' : 'hls-single');
-        if (autoPlay) void video.play().catch(() => null);
+        if (autoPlay) void tryAutoPlay(video);
       });
 
       hls.on(Hls.Events.LEVEL_SWITCHED, (_evt, data) => {
@@ -190,14 +204,14 @@ export default function HlsPlayer({
     if (manifestUrl && video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = manifestUrl;
       scheduleQualityModeReset('native');
-      if (autoPlay) void video.play().catch(() => null);
+      if (autoPlay) void tryAutoPlay(video);
       return;
     }
 
     if (fallbackUrl) {
       video.src = fallbackUrl;
       scheduleQualityModeReset('progressive');
-      if (autoPlay) void video.play().catch(() => null);
+      if (autoPlay) void tryAutoPlay(video);
     }
   }, [manifestUrl, fallbackUrl, autoPlay, onError, scheduleQualityModeReset]);
 
@@ -305,21 +319,26 @@ export default function HlsPlayer({
   useEffect(() => {
     const el = playerRef.current;
     const video = videoRef.current;
+    type AnyDoc = Document & { webkitFullscreenElement?: Element; mozFullScreenElement?: Element };
     function onFsChange() {
-      const fsEl = document.fullscreenElement ?? (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement;
+      const d = document as AnyDoc;
+      const fsEl = d.fullscreenElement ?? d.webkitFullscreenElement ?? d.mozFullScreenElement;
       setIsFullscreen(Boolean(el && fsEl === el));
     }
+    // iOS fires on the video element, not the document
     function onWebkitFs() {
       const vid = video as HTMLVideoElement & { webkitDisplayingFullscreen?: boolean };
       setIsFullscreen(Boolean(vid?.webkitDisplayingFullscreen));
     }
     document.addEventListener('fullscreenchange', onFsChange);
     document.addEventListener('webkitfullscreenchange', onFsChange);
+    document.addEventListener('mozfullscreenchange', onFsChange);
     video?.addEventListener('webkitbeginfullscreen', onWebkitFs);
     video?.addEventListener('webkitendfullscreen', onWebkitFs);
     return () => {
       document.removeEventListener('fullscreenchange', onFsChange);
       document.removeEventListener('webkitfullscreenchange', onFsChange);
+      document.removeEventListener('mozfullscreenchange', onFsChange);
       video?.removeEventListener('webkitbeginfullscreen', onWebkitFs);
       video?.removeEventListener('webkitendfullscreen', onWebkitFs);
     };
@@ -370,17 +389,29 @@ export default function HlsPlayer({
     const video = videoRef.current;
     const el = playerRef.current;
     if (!video || !el) return;
-    // iOS Safari: requestFullscreen on a div is not supported — use webkit API on the video element
-    const vid = video as HTMLVideoElement & { webkitEnterFullscreen?: () => void; webkitExitFullscreen?: () => void; webkitDisplayingFullscreen?: boolean };
-    if (typeof vid.webkitEnterFullscreen === 'function') {
-      if (vid.webkitDisplayingFullscreen) vid.webkitExitFullscreen?.();
-      else vid.webkitEnterFullscreen();
+
+    type AnyVideo = HTMLVideoElement & { webkitEnterFullscreen?: () => void; webkitExitFullscreen?: () => void; webkitDisplayingFullscreen?: boolean };
+    type AnyEl = HTMLElement & { webkitRequestFullscreen?: () => Promise<void>; mozRequestFullScreen?: () => Promise<void> };
+    type AnyDoc = Document & { webkitFullscreenElement?: Element; mozFullScreenElement?: Element; webkitExitFullscreen?: () => Promise<void>; mozCancelFullScreen?: () => Promise<void> };
+
+    const vid = video as AnyVideo;
+    const anyEl = el as AnyEl;
+    const anyDoc = document as AnyDoc;
+
+    // iOS Safari: div.requestFullscreen doesn't exist — must use video.webkitEnterFullscreen
+    if (!anyEl.requestFullscreen && !anyEl.webkitRequestFullscreen && typeof vid.webkitEnterFullscreen === 'function') {
+      vid.webkitDisplayingFullscreen ? vid.webkitExitFullscreen?.() : vid.webkitEnterFullscreen();
       return;
     }
+
+    const fsEl = anyDoc.fullscreenElement ?? anyDoc.webkitFullscreenElement ?? anyDoc.mozFullScreenElement;
     try {
-      if (document.fullscreenElement === el) await document.exitFullscreen();
-      else await el.requestFullscreen();
-    } catch { /* some browsers silently reject fullscreen outside a gesture */ }
+      if (fsEl) {
+        await (anyDoc.exitFullscreen?.() ?? anyDoc.webkitExitFullscreen?.() ?? anyDoc.mozCancelFullScreen?.());
+      } else {
+        await (anyEl.requestFullscreen?.() ?? anyEl.webkitRequestFullscreen?.() ?? anyEl.mozRequestFullScreen?.());
+      }
+    } catch { /* rejected outside a user gesture */ }
   }
 
   function handleVideoTap() {
@@ -476,11 +507,12 @@ export default function HlsPlayer({
         preload="metadata"
         poster={poster}
         title={title}
+        x-webkit-airplay="allow"
         onClick={handleVideoTap}
       />
 
-      {/* Full overlay — initial load only, never shown while video is playing */}
-      {!isPlayerReady && Boolean(manifestUrl || fallbackUrl) && (
+      {/* Full overlay — session fetch + initial video load, never shown while video is playing */}
+      {(isLoading || (!isPlayerReady && Boolean(manifestUrl || fallbackUrl))) && (
         <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
           <div className="flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-black/55 px-6 py-5 text-center shadow-2xl">
             <div className="relative h-14 w-14">
@@ -514,7 +546,7 @@ export default function HlsPlayer({
         {/* Custom seek bar with playhead handle */}
         <div
           ref={seekBarRef}
-          className="relative w-full h-6 sm:h-4 flex items-center cursor-pointer mb-2 group"
+          className="relative w-full h-6 sm:h-4 flex items-center cursor-pointer mb-2 group touch-none"
           aria-label="Seek"
           role="slider"
           aria-valuemin={0}
@@ -548,7 +580,7 @@ export default function HlsPlayer({
             <button
               type="button"
               onClick={() => void togglePlayPause()}
-              className="p-2 rounded-full hover:bg-white/15 transition-colors shrink-0"
+              className="p-2 rounded-full hover:bg-white/15 transition-colors shrink-0 touch-manipulation"
               aria-label={isPlaying ? 'Pause' : 'Play'}
             >
               {isPlaying ? (
@@ -566,7 +598,7 @@ export default function HlsPlayer({
             <button
               type="button"
               onClick={rewind10}
-              className="p-2 rounded-full hover:bg-white/15 transition-colors flex shrink-0"
+              className="p-2 rounded-full hover:bg-white/15 transition-colors flex shrink-0 touch-manipulation"
               aria-label="Rewind 10 seconds"
             >
               <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -579,7 +611,7 @@ export default function HlsPlayer({
             <button
               type="button"
               onClick={forward10}
-              className="p-2 rounded-full hover:bg-white/15 transition-colors flex shrink-0"
+              className="p-2 rounded-full hover:bg-white/15 transition-colors flex shrink-0 touch-manipulation"
               aria-label="Forward 10 seconds"
             >
               <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -592,7 +624,7 @@ export default function HlsPlayer({
             <button
               type="button"
               onClick={toggleMute}
-              className="p-2 rounded-full hover:bg-white/15 transition-colors shrink-0"
+              className="p-2 rounded-full hover:bg-white/15 transition-colors shrink-0 touch-manipulation"
               aria-label={isMuted ? 'Unmute' : 'Mute'}
             >
               {isMuted ? (
@@ -635,7 +667,7 @@ export default function HlsPlayer({
                     e.stopPropagation();
                     setShowQualityMenu((v) => !v);
                   }}
-                  className="p-2 rounded-full hover:bg-white/15 transition-colors"
+                  className="p-2 rounded-full hover:bg-white/15 transition-colors touch-manipulation"
                   aria-label={t('ariaQuality')}
                   aria-expanded={showQualityMenu}
                 >
@@ -702,7 +734,7 @@ export default function HlsPlayer({
             <button
               type="button"
               onClick={() => void toggleFullscreen()}
-              className="p-2 rounded-full hover:bg-white/15 transition-colors"
+              className="p-2 rounded-full hover:bg-white/15 transition-colors touch-manipulation"
               aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
             >
               {isFullscreen ? (

@@ -218,14 +218,6 @@ export default function WatchAccessGate({
     })();
   }, [fetchPlaybackSession, scheduleProactiveRefresh, sessionLoading]);
 
-  if (sessionLoading && !playbackUrl && !hlsManifestUrl && !accessDenied) {
-    return (
-      <div className="overflow-hidden bg-gray-100 border border-gray-200 shadow-sm flex items-center justify-center aspect-video">
-        <div className="animate-pulse w-10 h-10 border-2 border-brand-red border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
   if (accessDenied) {
     const isMovie = contentType === 'movie';
 
@@ -281,23 +273,17 @@ export default function WatchAccessGate({
     : `${title} - ${t('episode')} ${episodeNum.toString()}`;
 
   return (
-    <div className="overflow-hidden bg-gray-900 border border-gray-700 shadow-xl relative">
-      {sessionLoading && !playbackUrl && !hlsManifestUrl && (
-        <div className="flex items-center justify-center aspect-video bg-black/40">
-          <div className="animate-pulse w-10 h-10 border-2 border-white border-t-transparent rounded-full" />
-        </div>
-      )}
-      {(playbackUrl || hlsManifestUrl) && (
-        <HlsPlayer
-          key={`${hlsManifestUrl ?? 'manifest:none'}|${playbackUrl ?? 'fallback:none'}`}
-          manifestUrl={hlsManifestUrl}
-          fallbackUrl={playbackUrl}
-          poster={poster}
-          title={videoTitle}
-          autoPlay
-          onError={handleVideoError}
-        />
-      )}
+    <div className="overflow-hidden bg-black relative">
+      <HlsPlayer
+        key={`${hlsManifestUrl ?? 'manifest:none'}|${playbackUrl ?? 'fallback:none'}`}
+        manifestUrl={hlsManifestUrl}
+        fallbackUrl={playbackUrl}
+        poster={poster}
+        title={videoTitle}
+        autoPlay
+        isLoading={sessionLoading && !playbackUrl && !hlsManifestUrl}
+        onError={handleVideoError}
+      />
     </div>
   );
 }
