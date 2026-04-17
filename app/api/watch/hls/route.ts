@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server';
 import { enforceRateLimit } from '@/lib/api/rateLimit';
 import { fetchWithBudget } from '@/lib/utils/fetchWithBudget';
-import { isR2Url } from '@/lib/r2';
 import { resolveAdaptiveManifestUrl } from '@/lib/watch/hlsManifest';
 import { getHlsManifestUrlForPlayback } from '@/lib/watch/playbackAccess';
 import { getPlaybackMetadata, setPlaybackMetadata } from '@/lib/watch/playbackMetadata';
@@ -179,15 +178,6 @@ export async function GET(request: NextRequest) {
 
   const targetUrl = new URL(rawTargetUrl);
   const isManifestRequest = targetUrl.pathname.toLowerCase().endsWith('.m3u8');
-
-  // For segments: redirect directly to R2 instead of proxying every byte through Vercel.
-  // R2 public URLs serve with permissive CORS so HLS.js can follow the redirect cross-origin.
-  if (!isManifestRequest && isR2Url(rawTargetUrl)) {
-    return new Response(null, {
-      status: 302,
-      headers: { Location: rawTargetUrl, 'Cache-Control': 'no-store' },
-    });
-  }
 
   const rangeHeader = request.headers.get('range');
   const upstreamHeaders: Record<string, string> = {};

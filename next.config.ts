@@ -52,7 +52,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https://pub-ac9788ff252148bd812a13ddd99ab8a4.r2.dev https://placehold.co https://i.ytimg.com",
-              "media-src 'self' blob:",
+              "media-src 'self' blob: https://pub-ac9788ff252148bd812a13ddd99ab8a4.r2.dev https://*.r2.cloudflarestorage.com",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",

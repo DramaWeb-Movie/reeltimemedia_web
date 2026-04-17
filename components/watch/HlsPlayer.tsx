@@ -47,6 +47,8 @@ export default function HlsPlayer({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const seekBarRef = useRef<HTMLDivElement | null>(null);
+  const isSeekingRef = useRef(false);
 
   const [qualityMode, setQualityMode] = useState<QualityMode>('idle');
   const [qualityLevels, setQualityLevels] = useState<{ index: number; label: string }[]>([]);
@@ -269,6 +271,16 @@ export default function HlsPlayer({
     return () => document.removeEventListener('fullscreenchange', onFsChange);
   }, []);
 
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'ArrowLeft') { e.preventDefault(); rewind10(); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); forward10(); }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [duration]);
+
   const onQualityChange = useCallback((value: string) => {
     setSelectedQuality(value);
     const hls = hlsRef.current;
@@ -290,10 +302,10 @@ export default function HlsPlayer({
       try {
         await video.play();
       } catch (error) {
-        // Happens when source switches during startup (e.g. token refresh/HLS level load).
-        if (!(error instanceof DOMException) || error.name !== 'AbortError') {
-          throw error;
+        if (error instanceof DOMException && (error.name === 'AbortError' || error.name === 'NotSupportedError')) {
+          return;
         }
+        throw error;
       }
       return;
     }
@@ -312,6 +324,37 @@ export default function HlsPlayer({
     if (!video) return;
     video.currentTime = val;
     setCurrentTime(val);
+  }
+
+  function seekFromEvent(e: MouseEvent | TouchEvent) {
+    const bar = seekBarRef.current;
+    if (!bar || !duration) return;
+    const rect = bar.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    onSeek(pct * duration);
+  }
+
+  function handleSeekPointerDown(e: React.MouseEvent | React.TouchEvent) {
+    isSeekingRef.current = true;
+    keepControlsVisible();
+    seekFromEvent(e.nativeEvent);
+
+    function onMove(ev: MouseEvent | TouchEvent) {
+      if (!isSeekingRef.current) return;
+      seekFromEvent(ev);
+    }
+    function onUp() {
+      isSeekingRef.current = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onUp);
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.addEventListener('touchmove', onMove, { passive: true });
+    document.addEventListener('touchend', onUp);
   }
 
   function onVolumeInput(val: number) {
@@ -388,16 +431,32 @@ export default function HlsPlayer({
           showControls ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
       >
-        <input
-          type="range"
-          min={0}
-          max={Math.max(duration, 0)}
-          step={0.5}
-          value={Math.min(currentTime, duration || 0)}
-          onChange={(e) => onSeek(Number(e.target.value))}
-          className="w-full h-1 accent-brand-red cursor-pointer mb-2"
+        {/* Custom seek bar with playhead handle */}
+        <div
+          ref={seekBarRef}
+          className="relative w-full h-4 flex items-center cursor-pointer mb-2 group"
           aria-label="Seek"
-        />
+          role="slider"
+          aria-valuemin={0}
+          aria-valuemax={Math.max(duration, 0)}
+          aria-valuenow={Math.min(currentTime, duration || 0)}
+          onMouseDown={handleSeekPointerDown}
+          onTouchStart={handleSeekPointerDown}
+        >
+          {/* Track */}
+          <div className="absolute w-full h-1 bg-white/30 rounded-full" />
+          {/* Played fill */}
+          <div
+            className="absolute h-1 bg-brand-red rounded-full pointer-events-none"
+            style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
+          />
+          {/* Playhead handle */}
+          <div
+            className="absolute w-3 h-3 bg-white rounded-full shadow-lg pointer-events-none
+                       scale-0 group-hover:scale-100 transition-transform duration-150"
+            style={{ left: `${duration ? (currentTime / duration) * 100 : 0}%`, transform: `translateX(-50%) scale(var(--tw-scale-x))` }}
+          />
+        </div>
 
         <div className="flex items-center justify-between gap-3 text-white">
           <div className="flex items-center gap-1 sm:gap-2 min-w-0">

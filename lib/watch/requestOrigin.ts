@@ -48,5 +48,11 @@ export function isWatchRequestFromOurSite(request: NextRequest): boolean {
     if (allowedOrigin && refOrigin === allowedOrigin) return true;
   }
 
+  // No cross-site indicators at all — <video src="..."> often sends neither Origin nor
+  // Referer (privacy/referrer-policy) and sec-fetch-site is absent in Firefox/Safari.
+  // Block only when sec-fetch-site explicitly says cross-site; otherwise allow because
+  // the JWT token is the real auth gate.
+  if (!origin && !referer && secFetchSite !== 'cross-site') return true;
+
   return false;
 }
