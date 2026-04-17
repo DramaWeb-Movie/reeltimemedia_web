@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { enforceRateLimit } from '@/lib/api/rateLimit';
 import { getAuthenticatedUserId } from '@/lib/supabase/authUser';
 import { fetchWithBudget } from '@/lib/utils/fetchWithBudget';
+import { getR2PresignedUrl, isR2Url } from '@/lib/r2';
 import { isWatchRequestFromOurSite } from '@/lib/watch/requestOrigin';
 import { getVideoUrlForPlayback } from '@/lib/watch/playbackAccess';
 import { getPlaybackMetadata, setPlaybackMetadata } from '@/lib/watch/playbackMetadata';
@@ -78,8 +79,23 @@ export async function GET(request: NextRequest) {
     return new Response('Video not available', { status: 404 });
   }
 
-  const rangeHeader = request.headers.get('range');
+  // Redirect to a short-lived presigned R2 URL so the browser fetches the video
+  // directly from R2 instead of proxying every byte through Vercel.
+  if (isR2Url(videoUrl)) {
+    const presigned = await getR2PresignedUrl(videoUrl, 300);
+    if (presigned) {
+      return new Response(null, {
+        status: 302,
+        headers: {
+          Location: presigned,
+          'Cache-Control': 'no-store',
+        },
+      });
+    }
+  }
 
+  // Fallback: proxy for non-R2 URLs
+  const rangeHeader = request.headers.get('range');
   const headers: Record<string, string> = {};
   if (rangeHeader) headers['Range'] = rangeHeader;
 
@@ -87,15 +103,8 @@ export async function GET(request: NextRequest) {
   try {
     videoResponse = await fetchWithBudget(
       videoUrl,
-      {
-        headers,
-        redirect: 'follow',
-      },
-      {
-        timeoutMs: 12000,
-        retries: 1,
-        retryDelayMs: 200,
-      }
+      { headers, redirect: 'follow' },
+      { timeoutMs: 12000, retries: 1, retryDelayMs: 200 }
     );
   } catch {
     return new Response('Upstream video timeout', { status: 504 });

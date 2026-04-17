@@ -122,11 +122,17 @@ async function resolveAdaptiveManifestUrlUncached(original: string): Promise<str
   }
 
   const candidates = deriveMasterCandidates(original);
-  for (const candidate of candidates) {
-    const text = await fetchManifestText(candidate);
-    if (text && isMasterManifestContent(text)) {
-      return candidate;
-    }
+  try {
+    const winner = await Promise.any(
+      candidates.map(async (candidate) => {
+        const text = await fetchManifestText(candidate);
+        if (text && isMasterManifestContent(text)) return candidate;
+        throw new Error('not master');
+      })
+    );
+    return winner;
+  } catch {
+    // all candidates failed — fall through to original
   }
 
   // Fall back to original value so playback still works even without adaptive variants.

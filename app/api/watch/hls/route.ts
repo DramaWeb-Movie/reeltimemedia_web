@@ -1,7 +1,5 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { enforceRateLimit } from '@/lib/api/rateLimit';
-import { getAuthenticatedUserId } from '@/lib/supabase/authUser';
 import { fetchWithBudget } from '@/lib/utils/fetchWithBudget';
 import { resolveAdaptiveManifestUrl } from '@/lib/watch/hlsManifest';
 import { getHlsManifestUrlForPlayback } from '@/lib/watch/playbackAccess';
@@ -109,15 +107,8 @@ async function authorizePlaybackRequest(token: string) {
       response: new Response('Invalid or expired playback token', { status: 401 }),
     };
   }
-
-  if (claims.sub !== 'anon') {
-    const supabase = await createClient();
-    const userId = await getAuthenticatedUserId(supabase);
-    if (!userId || userId !== claims.sub) {
-      return { ok: false as const, response: new Response('Forbidden', { status: 403 }) };
-    }
-  }
-
+  // The JWT is HMAC-signed — verifyPlaybackToken already proves identity.
+  // Re-checking Supabase session on every segment adds a DB round-trip per .ts chunk.
   return { ok: true as const, claims };
 }
 

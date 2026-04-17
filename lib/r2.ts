@@ -5,6 +5,7 @@
  */
 
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 import https from 'https';
 import { Readable } from 'stream';
@@ -119,4 +120,27 @@ export async function streamFromR2(
  */
 export function isR2Url(videoUrl: string): boolean {
   return getR2BucketAndKey(videoUrl) !== null;
+}
+
+/**
+ * Generate a short-lived presigned R2 URL so the browser fetches directly from R2
+ * without proxying through Vercel. Returns null if URL is not an R2 URL or R2 is misconfigured.
+ */
+export async function getR2PresignedUrl(
+  videoUrl: string,
+  expiresInSeconds = 300
+): Promise<string | null> {
+  const bucketKey = getR2BucketAndKey(videoUrl);
+  if (!bucketKey) return null;
+
+  const client = getR2Client();
+  if (!client) return null;
+
+  try {
+    const command = new GetObjectCommand({ Bucket: bucketKey.bucket, Key: bucketKey.key });
+    return await getSignedUrl(client, command, { expiresIn: expiresInSeconds });
+  } catch (err) {
+    console.error('R2 presign error:', err);
+    return null;
+  }
 }
