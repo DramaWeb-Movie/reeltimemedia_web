@@ -191,7 +191,7 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
       <div className="container mx-auto px-0 sm:px-4 md:px-8 py-4 sm:py-10 md:py-12">
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 lg:gap-10">
           <div className="flex-1 min-w-0 px-0 sm:px-0">
-            <div className="rounded-none sm:rounded-2xl overflow-hidden shadow-xl glow-red ring-1 ring-black/5 bg-black">
+            <div className="overflow-hidden shadow-xl glow-red ring-1 ring-black/5 bg-black">
               <WatchAccessGate
                 contentId={id}
                 contentType={contentType === 'series' ? 'series' : 'movie'}
@@ -199,6 +199,7 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
                 episodeNum={episodeNum}
                 isSinglePart={isSinglePart}
                 totalEpisodes={totalEpisodes}
+                poster={drama.posterUrl ?? drama.bannerUrl ?? undefined}
                 freeEpisodesCount={freeEpisodesCount}
                 isFreeMovie={isFreeMovie}
               />

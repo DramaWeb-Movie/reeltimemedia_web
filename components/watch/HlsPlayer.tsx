@@ -49,6 +49,7 @@ export default function HlsPlayer({
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seekBarRef = useRef<HTMLDivElement | null>(null);
   const isSeekingRef = useRef(false);
+  const lastTimeRef = useRef(0);
 
   const [qualityMode, setQualityMode] = useState<QualityMode>('idle');
   const [qualityLevels, setQualityLevels] = useState<{ index: number; label: string }[]>([]);
@@ -65,6 +66,15 @@ export default function HlsPlayer({
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   const [isBuffering, setIsBuffering] = useState(() => Boolean(manifestUrl || fallbackUrl));
   const [bufferedPct, setBufferedPct] = useState(0);
+  const [showBufferingSpinner, setShowBufferingSpinner] = useState(false);
+
+  // Debounce mid-play buffering spinner — prevents flicker on fast seeks/mobile stall events
+  useEffect(() => {
+    const shouldShow = isPlayerReady && isBuffering;
+    if (!shouldShow) { setShowBufferingSpinner(false); return; }
+    const id = setTimeout(() => setShowBufferingSpinner(true), 400);
+    return () => clearTimeout(id);
+  }, [isPlayerReady, isBuffering]);
 
   const scheduleQualityModeReset = useCallback((mode: QualityMode) => {
     queueMicrotask(() => {
@@ -75,7 +85,6 @@ export default function HlsPlayer({
     });
   }, []);
 
-  const showLoadingOverlay = Boolean(manifestUrl || fallbackUrl) && (!isPlayerReady || isBuffering);
 
   const keepControlsVisible = useCallback(() => {
     setShowControls(true);
@@ -196,7 +205,15 @@ export default function HlsPlayer({
     const video = videoRef.current;
     if (!video) return;
 
-    const onTimeUpdate = () => setCurrentTime(video.currentTime || 0);
+    const onTimeUpdate = () => {
+      const t = video.currentTime || 0;
+      setCurrentTime(t);
+      // If time is advancing the video is actually playing — clear buffering state
+      if (!video.paused && t > lastTimeRef.current) {
+        lastTimeRef.current = t;
+        setIsBuffering(false);
+      }
+    };
     const onLoadedMetadata = () => setDuration(video.duration || 0);
     const onProgress = () => {
       const d = video.duration;
@@ -430,7 +447,8 @@ export default function HlsPlayer({
         onClick={() => void togglePlayPause()}
       />
 
-      {showLoadingOverlay && (
+      {/* Full overlay — initial load only, never shown while video is playing */}
+      {!isPlayerReady && Boolean(manifestUrl || fallbackUrl) && (
         <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
           <div className="flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-black/55 px-6 py-5 text-center shadow-2xl">
             <div className="relative h-14 w-14">
@@ -439,11 +457,19 @@ export default function HlsPlayer({
               <div className="absolute inset-2 rounded-full bg-white/5" />
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-white">
-                {isPlayerReady ? t('bufferingVideo') : t('loadingVideo')}
-              </p>
+              <p className="text-sm font-semibold text-white">{t('loadingVideo')}</p>
               <p className="text-xs text-white/70">{t('watchingOn')}</p>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Small corner spinner — mid-play buffering only, never blocks the video */}
+      {showBufferingSpinner && (
+        <div className="pointer-events-none absolute bottom-16 right-4 z-20">
+          <div className="flex items-center gap-2 rounded-full bg-black/70 px-3 py-2 backdrop-blur-sm">
+            <div className="h-4 w-4 rounded-full border-2 border-transparent border-t-white animate-spin shrink-0" />
+            <span className="text-xs text-white font-medium">{t('bufferingVideo')}</span>
           </div>
         </div>
       )}

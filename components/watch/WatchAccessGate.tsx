@@ -14,6 +14,7 @@ interface WatchAccessGateProps {
   episodeNum?: number;
   isSinglePart: boolean;
   totalEpisodes?: number;
+  poster?: string;
   freeEpisodesCount?: number;
   /** When true, movie is free and anyone (including guests) can watch */
   isFreeMovie?: boolean;
@@ -28,6 +29,7 @@ export default function WatchAccessGate({
   episodeNum,
   isSinglePart,
   totalEpisodes,
+  poster,
   freeEpisodesCount = 0,
   isFreeMovie = false,
 }: WatchAccessGateProps) {
@@ -89,9 +91,15 @@ export default function WatchAccessGate({
       const nextEp = currentEpNum + 1;
       if (totalEpisodes && nextEp > totalEpisodes) return;
       if (prefetchCacheRef.current.has(nextEp)) return;
-      // Fire-and-forget: silently cache the next episode's session
+      // Fire-and-forget: cache the session and warm the HLS manifest cache
       void fetchSessionForEp(nextEp).then((data) => {
-        if (data) prefetchCacheRef.current.set(nextEp, data);
+        if (!data) return;
+        prefetchCacheRef.current.set(nextEp, data);
+        // Fetching the manifest URL populates resolveAdaptiveManifestUrl's unstable_cache
+        // so the next episode's manifest is served instantly when the user navigates.
+        if (data.hlsManifestUrl) {
+          void fetch(data.hlsManifestUrl, { credentials: 'include' }).catch(() => null);
+        }
       });
     },
     [isSinglePart, totalEpisodes, fetchSessionForEp]
@@ -212,7 +220,7 @@ export default function WatchAccessGate({
 
   if (sessionLoading && !playbackUrl && !hlsManifestUrl && !accessDenied) {
     return (
-      <div className="rounded-2xl overflow-hidden bg-gray-100 border border-gray-200 shadow-sm flex items-center justify-center aspect-video">
+      <div className="overflow-hidden bg-gray-100 border border-gray-200 shadow-sm flex items-center justify-center aspect-video">
         <div className="animate-pulse w-10 h-10 border-2 border-brand-red border-t-transparent rounded-full" />
       </div>
     );
@@ -222,7 +230,7 @@ export default function WatchAccessGate({
     const isMovie = contentType === 'movie';
 
     return (
-      <div className="rounded-2xl overflow-hidden bg-white border border-gray-200 shadow-sm flex flex-col items-center justify-center aspect-video px-6 text-center">
+      <div className="overflow-hidden bg-white border border-gray-200 shadow-sm flex flex-col items-center justify-center aspect-video px-6 text-center">
         <div className="flex items-center justify-center w-16 h-16 rounded-full bg-brand-red/10 mb-4">
           <FiLock className="text-brand-red text-2xl" />
         </div>
@@ -254,7 +262,7 @@ export default function WatchAccessGate({
 
   if (sessionError && !playbackUrl && !hlsManifestUrl && !sessionLoading) {
     return (
-      <div className="rounded-2xl overflow-hidden bg-white border border-gray-200 shadow-sm flex flex-col items-center justify-center aspect-video px-6 text-center">
+      <div className="overflow-hidden bg-white border border-gray-200 shadow-sm flex flex-col items-center justify-center aspect-video px-6 text-center">
         <p className="text-gray-600 text-sm mb-4 max-w-md">{t('sessionFailed')}</p>
         <Button
           type="button"
@@ -273,7 +281,7 @@ export default function WatchAccessGate({
     : `${title} - ${t('episode')} ${episodeNum.toString()}`;
 
   return (
-    <div className="rounded-2xl overflow-hidden bg-gray-900 border border-gray-700 shadow-xl relative">
+    <div className="overflow-hidden bg-gray-900 border border-gray-700 shadow-xl relative">
       {sessionLoading && !playbackUrl && !hlsManifestUrl && (
         <div className="flex items-center justify-center aspect-video bg-black/40">
           <div className="animate-pulse w-10 h-10 border-2 border-white border-t-transparent rounded-full" />
@@ -284,6 +292,7 @@ export default function WatchAccessGate({
           key={`${hlsManifestUrl ?? 'manifest:none'}|${playbackUrl ?? 'fallback:none'}`}
           manifestUrl={hlsManifestUrl}
           fallbackUrl={playbackUrl}
+          poster={poster}
           title={videoTitle}
           autoPlay
           onError={handleVideoError}
