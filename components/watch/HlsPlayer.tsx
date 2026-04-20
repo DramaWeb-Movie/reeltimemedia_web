@@ -405,10 +405,17 @@ export default function HlsPlayer({
     type AnyVideo = HTMLVideoElement & { webkitEnterFullscreen?: () => void; webkitExitFullscreen?: () => void; webkitDisplayingFullscreen?: boolean };
     type AnyEl = HTMLElement & { webkitRequestFullscreen?: () => Promise<void>; mozRequestFullScreen?: () => Promise<void> };
     type AnyDoc = Document & { webkitFullscreenElement?: Element; mozFullScreenElement?: Element; webkitExitFullscreen?: () => Promise<void>; mozCancelFullScreen?: () => Promise<void> };
+    type FsCapableEl = Element & {
+      requestFullscreen?: () => Promise<void>;
+      webkitRequestFullscreen?: () => Promise<void>;
+      mozRequestFullScreen?: () => Promise<void>;
+    };
 
     const vid = video as AnyVideo;
     const anyEl = el as AnyEl;
     const anyDoc = document as AnyDoc;
+    const fsVideo = video as FsCapableEl;
+    const fsContainer = el as FsCapableEl;
 
     // iOS Safari: div.requestFullscreen doesn't exist — must use video.webkitEnterFullscreen
     if (!anyEl.requestFullscreen && !anyEl.webkitRequestFullscreen && typeof vid.webkitEnterFullscreen === 'function') {
@@ -425,7 +432,18 @@ export default function HlsPlayer({
       if (fsEl) {
         await (anyDoc.exitFullscreen?.() ?? anyDoc.webkitExitFullscreen?.() ?? anyDoc.mozCancelFullScreen?.());
       } else {
-        await (anyEl.requestFullscreen?.() ?? anyEl.webkitRequestFullscreen?.() ?? anyEl.mozRequestFullScreen?.());
+        // On many phones, fullscreen is allowed on the <video> element but not on wrapper divs.
+        await (
+          fsVideo.requestFullscreen?.()
+          ?? fsVideo.webkitRequestFullscreen?.()
+          ?? fsVideo.mozRequestFullScreen?.()
+          ?? fsContainer.requestFullscreen?.()
+          ?? fsContainer.webkitRequestFullscreen?.()
+          ?? fsContainer.mozRequestFullScreen?.()
+          ?? anyEl.requestFullscreen?.()
+          ?? anyEl.webkitRequestFullscreen?.()
+          ?? anyEl.mozRequestFullScreen?.()
+        );
       }
     } catch { /* rejected outside a user gesture */ }
   }
