@@ -250,7 +250,15 @@ export default function HlsPlayer({
         setIsBuffering(false);
       }
     };
-    const onLoadedMetadata = () => setDuration(video.duration || 0);
+    const onLoadedMetadata = () => {
+      setDuration(video.duration || 0);
+      // Progressive (non-HLS) playback on some mobile browsers delays canplay
+      // until a user gesture; consider metadata-ready as initial readiness so
+      // the UI does not get stuck behind the startup overlay.
+      if (!manifestUrl && fallbackUrl) {
+        setIsPlayerReady(true);
+      }
+    };
     const onProgress = () => {
       const d = video.duration;
       if (!d || !video.buffered.length) return;
@@ -445,7 +453,17 @@ export default function HlsPlayer({
           ?? anyEl.mozRequestFullScreen?.()
         );
       }
-    } catch { /* rejected outside a user gesture */ }
+    } catch {
+      // Mobile Safari can reject requestFullscreen even with a user gesture;
+      // fall back to the native video fullscreen API when available.
+      if (typeof vid.webkitEnterFullscreen === 'function') {
+        try {
+          vid.webkitEnterFullscreen();
+        } catch {
+          // No-op: keep silent if browser blocks fullscreen entirely.
+        }
+      }
+    }
   }
 
   function handleVideoTap() {
