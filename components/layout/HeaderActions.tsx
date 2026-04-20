@@ -52,6 +52,21 @@ export default function HeaderActions({ initialUser, mobileRootId = MOBILE_ROOT_
     return () => subscription.unsubscribe();
   }, []);
 
+  // Lock body scroll while the mobile nav drawer is open so the page behind it
+  // doesn't scroll under the user's fingers.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (isMenuOpen) {
+      document.body.classList.add('no-scroll');
+      return () => document.body.classList.remove('no-scroll');
+    }
+  }, [isMenuOpen]);
+
+  // Close the drawer when the user navigates to a new route.
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [pathname]);
+
   const switchLanguage = useCallback((code: string) => {
     document.cookie = `NEXT_LOCALE=${code}; path=/; max-age=${60 * 60 * 24 * 365}`;
     setCurrentLocale(code);
@@ -131,11 +146,21 @@ export default function HeaderActions({ initialUser, mobileRootId = MOBILE_ROOT_
         </button>
       </div>
 
+      {/* Backdrop — closes the menu when tapping outside */}
+      {isMenuOpen && (
+        <button
+          type="button"
+          className="md:hidden fixed inset-0 top-16 z-30 bg-black/40 backdrop-blur-[1px]"
+          aria-label={t('toggleMenu')}
+          onClick={() => setIsMenuOpen(false)}
+        />
+      )}
+
       {/* Mobile Navigation (portaled into nav so it appears below the flex row) */}
       {mobileEl &&
         isMenuOpen &&
         createPortal(
-          <div className="md:hidden mt-4 pb-4 space-y-2 border-t border-gray-200 pt-4 animate-in slide-in-from-top duration-200 bg-white/95 backdrop-blur-lg rounded-2xl px-2 dark:border-gray-700 dark:bg-gray-950/95">
+          <div className="md:hidden relative z-40 mt-4 pb-4 space-y-2 border-t border-gray-200 pt-4 animate-in slide-in-from-top duration-200 bg-white/95 backdrop-blur-lg rounded-2xl px-2 dark:border-gray-700 dark:bg-gray-950/95 max-h-[75dvh] overflow-y-auto safe-pb">
             <Link
               href="/home"
               aria-current={isMainNavActive(pathname, '/home') ? 'page' : undefined}

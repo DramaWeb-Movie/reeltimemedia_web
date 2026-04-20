@@ -354,6 +354,8 @@
   },
   "common": {
     "previousPage": "ទំព័រមុន",
-    "nextPage": "ទំព័របន្ទាប់"
+    "nextPage": "ទំព័របន្ទាប់",
+    "search": "ស្វែងរក",
+    "close": "បិទ"
   }
 }

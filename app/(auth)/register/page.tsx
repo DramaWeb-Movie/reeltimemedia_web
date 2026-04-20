@@ -181,6 +181,8 @@ export default function RegisterPage() {
             label={t('fullName')}
             type="text"
             name="name"
+            autoComplete="name"
+            autoCapitalize="words"
             value={formData.name}
             onChange={handleChange}
             placeholder={t('enterFullName')}
@@ -197,6 +199,10 @@ export default function RegisterPage() {
               label={t('emailAddress')}
               type="email"
               name="email"
+              inputMode="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              autoComplete="email"
               value={formData.email}
               onChange={handleChange}
               placeholder={t('enterEmail')}
@@ -211,6 +217,8 @@ export default function RegisterPage() {
               label={t('phoneNumber')}
               type="tel"
               name="phone"
+              inputMode="tel"
+              autoComplete="tel"
               value={formData.phone}
               onChange={handleChange}
               placeholder={t('enterPhone')}
@@ -227,6 +235,7 @@ export default function RegisterPage() {
             label={t('password')}
             type="password"
             name="password"
+            autoComplete="new-password"
             value={formData.password}
             onChange={handleChange}
             placeholder={t('createPassword')}
@@ -242,6 +251,7 @@ export default function RegisterPage() {
             label={t('confirmPassword')}
             type="password"
             name="confirmPassword"
+            autoComplete="new-password"
             value={formData.confirmPassword}
             onChange={handleChange}
             placeholder={t('confirmYourPassword')}
@@ -251,14 +261,14 @@ export default function RegisterPage() {
         </div>
 
         {/* Terms Agreement */}
-        <div className="flex items-start">
+        <label className="flex items-start gap-3 cursor-pointer select-none py-1">
           <input
             type="checkbox"
             checked={agreeToTerms}
             onChange={(e) => setAgreeToTerms(e.target.checked)}
-            className="h-4 w-4 mt-1 text-brand-red bg-[#252525] border-[#333333] rounded focus:ring-brand-red focus:ring-offset-[#1A1A1A]"
+            className="h-5 w-5 mt-0.5 text-brand-red bg-white border-gray-300 rounded focus:ring-brand-red shrink-0"
           />
-          <label className="ml-3 text-sm text-[#B3B3B3]">
+          <span className="text-sm text-gray-600">
             {t('agreeToTerms')}{' '}
             <Link href="/terms" className="text-brand-red hover:text-brand-red/80 font-medium transition-colors">
               {t('termsOfService')}
@@ -267,8 +277,8 @@ export default function RegisterPage() {
             <Link href="/privacy" className="text-brand-red hover:text-brand-red/80 font-medium transition-colors">
               {t('privacyPolicy')}
             </Link>
-          </label>
-        </div>
+          </span>
+        </label>
 
         {/* Submit Button */}
         <Button

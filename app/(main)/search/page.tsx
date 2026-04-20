@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import SearchBar from '@/components/shared/SearchBar';
 import Loading from '@/components/shared/Loading';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -13,14 +13,31 @@ import type { MovieCard } from '@/lib/movies';
 
 function SearchContent() {
   const t = useTranslations('search');
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const initialQuery = searchParams.get('q') || '';
+  const urlQuery = searchParams.get('q') ?? '';
 
-  const [query, setQuery] = useState(initialQuery);
+  const [query, setQuery] = useState(urlQuery);
   const [results, setResults] = useState<MovieCard[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const debouncedQuery = useDebounce(query, 400);
+
+  // Keep input in sync when the URL changes (e.g. back/forward navigation).
+  useEffect(() => {
+    setQuery(urlQuery);
+  }, [urlQuery]);
+
+  // Reflect the debounced query back into the URL so the search is shareable.
+  useEffect(() => {
+    const trimmed = debouncedQuery.trim();
+    if (trimmed === urlQuery.trim()) return;
+    const params = new URLSearchParams(searchParams?.toString());
+    if (trimmed) params.set('q', trimmed);
+    else params.delete('q');
+    const next = params.toString();
+    router.replace(next ? `/search?${next}` : '/search', { scroll: false });
+  }, [debouncedQuery, urlQuery, router, searchParams]);
 
   useEffect(() => {
     if (!debouncedQuery.trim() || debouncedQuery.trim().length < 2) {
@@ -54,11 +71,11 @@ function SearchContent() {
 
   return (
     <>
-      <div className="max-w-3xl mx-auto mb-12">
-        <h1 className="text-4xl md:text-5xl font-bold mb-8 text-center">
+      <div className="max-w-3xl mx-auto mb-10 sm:mb-12">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-6 sm:mb-8 text-center">
           <span className="gradient-text">{t('title')}</span> {t('contentLabel')}
         </h1>
-        <SearchBar placeholder={t('placeholder')} onSearch={setQuery} />
+        <SearchBar placeholder={t('placeholder')} value={query} onSearch={setQuery} />
       </div>
 
       {/* Status line */}
@@ -120,8 +137,8 @@ function SearchContent() {
 
 export default function SearchPage() {
   return (
-    <div className="min-h-screen bg-gray-50 pt-24">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-dvh bg-gray-50 pt-20 sm:pt-24">
+      <div className="container mx-auto px-4 py-6 sm:py-8">
         <Suspense fallback={<Loading />}>
           <SearchContent />
         </Suspense>

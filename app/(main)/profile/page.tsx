@@ -6,7 +6,7 @@ import Image from 'next/image';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import type { Drama } from '@/types';
-import { FiUser, FiSettings, FiEdit2, FiX, FiFilm, FiPlay, FiCalendar, FiCreditCard } from 'react-icons/fi';
+import { FiUser, FiEdit2, FiX, FiFilm, FiPlay, FiCalendar, FiCreditCard } from 'react-icons/fi';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
@@ -275,10 +275,6 @@ export default function ProfilePage() {
                 )}
               </div>
             </div>
-            <Button variant="secondary" className="flex items-center gap-2">
-              <FiSettings className="text-lg" />
-              {t('settings')}
-            </Button>
           </div>
         </div>
 
@@ -325,8 +321,8 @@ export default function ProfilePage() {
                         sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
                       />
                       <div className="absolute inset-0 bg-linear-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
-                        <div className="w-14 h-14 rounded-full bg-brand-red flex items-center justify-center shadow-lg transform scale-75 group-hover:scale-100 transition-transform duration-300">
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 touch-show transition-all duration-300">
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-brand-red/90 backdrop-blur-sm flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform duration-300">
                           <FiPlay className="text-white text-xl ml-1" />
                         </div>
                       </div>
@@ -353,8 +349,8 @@ export default function ProfilePage() {
 
       {/* Edit Profile Modal */}
       {isEditOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl border border-gray-200 w-full max-w-md p-6 shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl border border-gray-200 w-full max-w-md p-6 shadow-xl max-h-[90dvh] overflow-y-auto pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:pb-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-gray-900">{t('editProfile')}</h2>
               <button

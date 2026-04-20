@@ -150,8 +150,8 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
   const watchHref = (ep: number) => watchPagePath(id, ep, isSinglePart);
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-14 sm:pt-20">
-      <div className="sticky top-14 sm:top-16 z-20 border-b border-gray-200 bg-white/95 backdrop-blur-md">
+    <div className="min-h-dvh bg-gray-50 pt-16 sm:pt-20">
+      <div className="sticky top-16 sm:top-20 z-40 border-b border-gray-200 bg-white/95 backdrop-blur-md">
         <div className="container mx-auto px-3 sm:px-4 md:px-8 py-3 sm:py-4">
           <div className="flex items-center gap-2 sm:gap-3 md:gap-4 min-w-0">
             <Link
@@ -307,7 +307,7 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
                       : t('episodeTotalOther', { count: totalEpisodes })}
                   </p>
                 </div>
-                <div className="max-h-[45vh] sm:max-h-[50vh] lg:max-h-[calc(100vh-14rem)] overflow-y-auto scrollbar-hide">
+                <div className="max-h-[45dvh] sm:max-h-[50dvh] lg:max-h-[calc(100dvh-14rem)] overflow-y-auto scrollbar-hide">
                   <div className="flex flex-col gap-1 p-2 sm:p-3">
                     {episodeList.map((num) => {
                       const isActive = num === episodeNum;

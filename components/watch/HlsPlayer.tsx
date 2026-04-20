@@ -606,9 +606,15 @@ export default function HlsPlayer({
         onClick={handleVideoTap}
       />
 
-      {/* Full overlay — session fetch + initial video load, never shown while video is playing */}
+      {/* Full overlay — session fetch + initial video load, never shown while video is playing.
+          Blocks pointer events so taps don't fall through to the <video> underneath. */}
       {(isLoading || (!isPlayerReady && Boolean(manifestUrl || fallbackUrl))) && (
-        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-[2px]">
+        <div
+          className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-[2px]"
+          aria-hidden="true"
+          onClick={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+        >
           <div className="flex flex-col items-center gap-3 rounded-2xl border border-white/10 bg-black/55 px-6 py-5 text-center shadow-2xl">
             <div className="relative h-14 w-14">
               <div className="absolute inset-0 rounded-full border border-white/15" />

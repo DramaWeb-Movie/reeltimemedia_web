@@ -141,6 +141,10 @@ function LoginForm() {
               label={t('emailAddress')}
               type="email"
               name="email"
+              inputMode="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              autoComplete="email"
               value={formData.email}
               onChange={handleChange}
               placeholder={t('enterEmail')}
@@ -155,6 +159,8 @@ function LoginForm() {
               label={t('phoneNumber')}
               type="tel"
               name="phone"
+              inputMode="tel"
+              autoComplete="tel"
               value={formData.phone}
               onChange={handleChange}
               placeholder={t('enterPhone')}
@@ -171,6 +177,7 @@ function LoginForm() {
             label={t('password')}
             type="password"
             name="password"
+            autoComplete="current-password"
             value={formData.password}
             onChange={handleChange}
             placeholder={t('enterPassword')}
@@ -180,15 +187,15 @@ function LoginForm() {
         </div>
 
         {/* Remember Me & Forgot Password */}
-        <div className="flex items-center justify-between">
-          <label className="flex items-center cursor-pointer">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <label className="flex items-center cursor-pointer py-1 -my-1 select-none">
             <input
               type="checkbox"
               checked={rememberMe}
               onChange={(e) => setRememberMe(e.target.checked)}
-              className="h-4 w-4 text-brand-red bg-[#252525] border-[#333333] rounded focus:ring-brand-red focus:ring-offset-[#1A1A1A]"
+              className="h-5 w-5 text-brand-red bg-white border-gray-300 rounded focus:ring-brand-red"
             />
-            <span className="ml-2 text-sm text-[#B3B3B3]">{t('rememberMe')}</span>
+            <span className="ml-2.5 text-sm text-gray-700">{t('rememberMe')}</span>
           </label>
 
           <Link

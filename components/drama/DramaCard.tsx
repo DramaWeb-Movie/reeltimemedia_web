@@ -40,9 +40,9 @@ export default function DramaCard({ drama, index }: DramaCardProps) {
             </div>
           )}
 
-          {/* Play Button on Hover */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
-            <div className="w-14 h-14 rounded-full bg-brand-red flex items-center justify-center transform scale-75 group-hover:scale-100 transition-transform duration-300 shadow-lg">
+          {/* Play affordance — always visible on touch devices, hover reveal on pointer/mouse */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 touch-show transition-all duration-300">
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-brand-red/90 backdrop-blur-sm flex items-center justify-center transform scale-90 group-hover:scale-100 transition-transform duration-300 shadow-lg">
               <FiPlay className="text-white text-xl ml-1" />
             </div>
           </div>

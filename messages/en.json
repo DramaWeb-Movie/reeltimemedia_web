@@ -354,6 +354,8 @@
   },
   "common": {
     "previousPage": "Previous page",
-    "nextPage": "Next page"
+    "nextPage": "Next page",
+    "search": "Search",
+    "close": "Close"
   }
 }

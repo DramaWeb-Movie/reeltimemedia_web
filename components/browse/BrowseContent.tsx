@@ -111,8 +111,8 @@ export default function BrowseContent({
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-24">
-      <div className="container mx-auto px-4 md:px-8 py-8">
+    <div className="min-h-dvh bg-gray-50 pt-20 sm:pt-24">
+      <div className="container mx-auto px-4 md:px-8 py-6 sm:py-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900">{t('title')}</h1>
@@ -140,9 +140,9 @@ export default function BrowseContent({
           )}
         </div>
 
-        <div className="flex flex-wrap gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:flex md:flex-wrap gap-3 sm:gap-4 mb-6 sm:mb-8">
           {/* Combined Access + Content Type dropdown */}
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1 min-w-0">
             <label className="text-xs font-medium text-gray-500">
               {t('labelAccess')} + {t('labelType')}
             </label>
@@ -181,7 +181,7 @@ export default function BrowseContent({
                   page: next.page,
                 });
               }}
-              className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-red/60 focus:border-brand-red/60 min-w-[220px]"
+              className="w-full md:w-auto md:min-w-[220px] bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-red/60 focus:border-brand-red/60"
             >
               <option value="all">{t('filterAllAccess')} + {t('filterAllTypes')}</option>
               <option value="movie">{t('filterMovies')}</option>
@@ -197,7 +197,7 @@ export default function BrowseContent({
 
           {/* Genre dropdown */}
           {allGenres.length > 0 && (
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1 min-w-0">
               <label className="text-xs font-medium text-gray-500">
                 {t('labelGenre')}
               </label>
@@ -209,7 +209,7 @@ export default function BrowseContent({
                     page: 1,
                   });
                 }}
-                className="bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-red/60 focus:border-brand-red/60 min-w-[180px]"
+                className="w-full md:w-auto md:min-w-[180px] bg-white border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-red/60 focus:border-brand-red/60"
               >
                 <option value="all">{t('filterAllGenres')}</option>
                 {allGenres.map((genre) => (

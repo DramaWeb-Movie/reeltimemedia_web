@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Noto_Sans_Khmer } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/layout/Header";
@@ -28,6 +28,16 @@ export const metadata: Metadata = {
     "Your premium destination for movies and dramas. Stream the latest blockbusters and timeless classics in stunning quality.",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F9FAFB" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f172a" },
+  ],
+};
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -46,7 +56,7 @@ export default async function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${notoSansKhmer.variable} antialiased flex flex-col min-h-screen bg-[var(--background)] text-[var(--foreground)] transition-colors duration-200`}
+        className={`${geistSans.variable} ${geistMono.variable} ${notoSansKhmer.variable} antialiased flex flex-col min-h-dvh bg-[var(--background)] text-[var(--foreground)] transition-colors duration-200`}
       >
         <NextIntlClientProvider messages={messages}>
           <Header />
