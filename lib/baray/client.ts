@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { fetchWithBudget } from '@/lib/utils/fetchWithBudget';
-import { signPaymentFailToken } from '@/lib/payments/failToken';
+import { signPaymentFailToken } from './failToken';
 import {
   BarayCredentials,
   BarayPaymentPayload,

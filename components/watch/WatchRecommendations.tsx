@@ -1,5 +1,5 @@
 import DramaCardCompact from '@/components/drama/DramaCardCompact';
-import { DRAMA_CARD_GRID } from '@/lib/drama-grid';
+import { CATALOG_CARD_GRID } from '@/lib/catalog/grid';
 import { getRecommendedMovies } from '@/lib/movies';
 import { getTranslations } from 'next-intl/server';
 import type { ContentType } from '@/types';
@@ -11,7 +11,7 @@ export function WatchRecommendationsSkeleton() {
         <div className="h-7 w-40 sm:w-48 bg-gray-200 rounded-lg" />
         <div className="h-4 w-28 sm:w-40 bg-gray-100 rounded hidden sm:block" />
       </div>
-      <div className={DRAMA_CARD_GRID}>
+      <div className={CATALOG_CARD_GRID}>
         {Array.from({ length: 5 }, (_, i) => (
           <div key={i} className="aspect-2/3 bg-gray-200 rounded-xl" />
         ))}
@@ -42,7 +42,7 @@ export default async function WatchRecommendations({
         </div>
         <span className="text-xs sm:text-sm text-gray-500">{t('handpickedForYou')}</span>
       </div>
-      <div className={DRAMA_CARD_GRID}>
+      <div className={CATALOG_CARD_GRID}>
         {recommended.map((item) => {
           const isSeries = item.contentType === 'series' || item.episodes > 1;
           const isMovie = item.contentType === 'movie' || (!isSeries && item.episodes <= 1);

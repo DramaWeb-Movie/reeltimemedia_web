@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { jsonNoStore } from '@/lib/api/json';
 import { enforceRateLimit } from '@/lib/api/rateLimit';
 import { isWatchRequestFromOurSite } from '@/lib/watch/requestOrigin';
 import { grantPlaybackAccess } from '@/lib/watch/playbackAccess';
@@ -19,18 +20,18 @@ export async function POST(request: NextRequest) {
   if (blocked) return blocked;
 
   if (!isWatchRequestFromOurSite(request)) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return jsonNoStore({ error: 'Forbidden' }, { status: 403 });
   }
 
   let body: unknown;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    return jsonNoStore({ error: 'Invalid JSON' }, { status: 400 });
   }
 
   if (!body || typeof body !== 'object') {
-    return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
+    return jsonNoStore({ error: 'Invalid body' }, { status: 400 });
   }
 
   const contentId = typeof (body as { contentId?: unknown }).contentId === 'string'
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
       : 1;
 
   if (!contentId) {
-    return NextResponse.json({ error: 'Missing contentId' }, { status: 400 });
+    return jsonNoStore({ error: 'Missing contentId' }, { status: 400 });
   }
 
   let grant;
@@ -52,11 +53,11 @@ export async function POST(request: NextRequest) {
     grant = await grantPlaybackAccess(contentId, ep);
   } catch (e) {
     console.error('grantPlaybackAccess error:', e);
-    return NextResponse.json({ error: 'Playback unavailable' }, { status: 500 });
+    return jsonNoStore({ error: 'Playback unavailable' }, { status: 500 });
   }
 
   if (!grant.ok) {
-    return NextResponse.json(
+    return jsonNoStore(
       { error: grant.message },
       { status: grant.status }
     );
@@ -75,7 +76,7 @@ export async function POST(request: NextRequest) {
     }));
   } catch (e) {
     console.error('signPlaybackToken error:', e);
-    return NextResponse.json(
+    return jsonNoStore(
       { error: 'Playback token misconfigured' },
       { status: 500 }
     );
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
     ? `/api/watch/hls?token=${encodeURIComponent(token)}`
     : null;
 
-  return NextResponse.json({
+  return jsonNoStore({
     playbackUrl,
     ...(hlsManifestUrl ? { hlsManifestUrl } : {}),
     expiresAt: expiresAt.toISOString(),

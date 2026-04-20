@@ -8,7 +8,6 @@ import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 import https from 'https';
-import { Readable } from 'stream';
 
 /** HTTPS agent that enforces TLS 1.2+ to avoid SSL handshake failure with Cloudflare R2. */
 const r2HttpsAgent = new https.Agent({
@@ -56,63 +55,6 @@ function getR2BucketAndKey(videoUrl: string): { bucket: string; key: string } | 
   if (!key) return null;
 
   return { bucket, key };
-}
-
-export type R2StreamResult = {
-  body: ReadableStream;
-  contentType?: string;
-  contentLength?: number;
-  contentRange?: string;
-  acceptRanges?: string;
-  statusCode: number;
-};
-
-/**
- * Stream from R2 via S3 GetObject (server-side). Browser only talks to your app domain.
- * Returns null if URL is not from our R2 bucket or R2 is not configured.
- */
-export async function streamFromR2(
-  videoUrl: string,
-  rangeHeader: string | null
-): Promise<R2StreamResult | null> {
-  const bucketKey = getR2BucketAndKey(videoUrl);
-  if (!bucketKey) return null;
-
-  const client = getR2Client();
-  if (!client) return null;
-
-  const { bucket, key } = bucketKey;
-
-  try {
-    const command = new GetObjectCommand({
-      Bucket: bucket,
-      Key: key,
-      ...(rangeHeader ? { Range: rangeHeader } : {}),
-    });
-    const response = await client.send(command);
-    const body = response.Body;
-    if (!body) return null;
-
-    // AWS SDK in Node returns a Node Readable; Response() expects a Web ReadableStream.
-    let webBody: ReadableStream;
-    if (typeof (body as ReadableStream).getReader === 'function') {
-      webBody = body as ReadableStream;
-    } else {
-      webBody = Readable.toWeb(body as unknown as Readable) as ReadableStream;
-    }
-
-    return {
-      body: webBody,
-      contentType: response.ContentType ?? undefined,
-      contentLength: response.ContentLength ?? undefined,
-      contentRange: response.ContentRange ?? undefined,
-      acceptRanges: response.AcceptRanges ?? undefined,
-      statusCode: response.$metadata.httpStatusCode ?? 200,
-    };
-  } catch (err) {
-    console.error('R2 stream error:', err);
-    return null;
-  }
 }
 
 /**

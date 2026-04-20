@@ -1,12 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { updateSession } from '@/lib/supabase/middleware';
 import { logApiRequest } from '@/lib/logging/requestLog';
+import { updateSession } from '@/lib/supabase/middleware';
 
 function shouldRefreshSession(pathname: string): boolean {
   return pathname !== '/api/watch/hls' && pathname !== '/api/watch/stream';
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const start = Date.now();
   const pathname = request.nextUrl.pathname;
 

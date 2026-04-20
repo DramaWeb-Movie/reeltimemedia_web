@@ -8,7 +8,15 @@ import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { FiMail, FiLock, FiUser, FiPhone } from 'react-icons/fi';
 import { createClient } from '@/lib/supabase/client';
-import { isValidE164, normalizePhone } from '@/lib/auth/phone';
+import { getSupabasePublicConfigError } from '@/lib/supabase/publicConfig';
+import { normalizePhone } from '@/lib/auth/phone';
+import {
+  validateConfirmPassword,
+  validateEmail,
+  validateName,
+  validatePassword,
+  validatePhone,
+} from '@/lib/auth/validation';
 import { useTranslations } from 'next-intl';
 
 type RegisterMethod = 'email' | 'phone';
@@ -46,38 +54,22 @@ export default function RegisterPage() {
   const validateForm = () => {
     const newErrors: typeof errors = {};
 
-    if (!formData.name.trim()) {
-      newErrors.name = t('nameRequired');
-    } else if (formData.name.length < 2) {
-      newErrors.name = t('nameMinLength');
-    }
+    const nameError = validateName(formData.name, t);
+    if (nameError) newErrors.name = nameError;
 
     if (registerMethod === 'email') {
-      if (!formData.email) {
-        newErrors.email = t('emailRequired');
-      } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-        newErrors.email = t('emailInvalid');
-      }
+      const emailError = validateEmail(formData.email, t);
+      if (emailError) newErrors.email = emailError;
     } else {
-      const normalized = normalizePhone(formData.phone);
-      if (!formData.phone.trim()) {
-        newErrors.phone = t('phoneRequired');
-      } else if (!isValidE164(normalized)) {
-        newErrors.phone = t('phoneInvalid');
-      }
+      const phoneError = validatePhone(formData.phone, t);
+      if (phoneError) newErrors.phone = phoneError;
     }
 
-    if (!formData.password) {
-      newErrors.password = t('passwordRequired');
-    } else if (formData.password.length < 6) {
-      newErrors.password = t('passwordMinLength');
-    }
+    const passwordError = validatePassword(formData.password, t);
+    if (passwordError) newErrors.password = passwordError;
 
-    if (!formData.confirmPassword) {
-      newErrors.confirmPassword = t('confirmPasswordRequired');
-    } else if (formData.password !== formData.confirmPassword) {
-      newErrors.confirmPassword = t('passwordsDoNotMatch');
-    }
+    const confirmPasswordError = validateConfirmPassword(formData.password, formData.confirmPassword, t);
+    if (confirmPasswordError) newErrors.confirmPassword = confirmPasswordError;
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -100,15 +92,9 @@ export default function RegisterPage() {
     setLoading(true);
     setFormError(null);
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey =
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      setFormError(
-        'Supabase is not configured. Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env, then restart the dev server.'
-      );
+    const configError = getSupabasePublicConfigError();
+    if (configError) {
+      setFormError(configError);
       setLoading(false);
       return;
     }

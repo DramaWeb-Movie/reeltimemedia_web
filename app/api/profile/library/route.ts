@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { jsonPrivateNoStore } from '@/lib/api/json';
 import { parseNumericRating } from '@/lib/movies';
+import { getAuthenticatedServerUser } from '@/lib/supabase/serverUser';
 import type { Drama } from '@/types';
 
 const PLACEHOLDER = 'https://placehold.co/400x600/f3f4f6/9ca3af?text=No+Image';
@@ -25,13 +25,10 @@ type MovieRow = {
  * movies table access issues.
  */
 export async function GET() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getAuthenticatedServerUser();
 
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return jsonPrivateNoStore({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const { data: purchaseRows, error: purchasesError } = await supabase
@@ -43,18 +40,18 @@ export async function GET() {
 
   if (purchasesError) {
     console.error('Profile library: failed to load purchases', purchasesError);
-    return NextResponse.json({ library: [] });
+    return jsonPrivateNoStore({ library: [] });
   }
 
   if (!purchaseRows?.length) {
-    return NextResponse.json({ library: [] });
+    return jsonPrivateNoStore({ library: [] });
   }
 
   const contentIds = purchaseRows
     .map((r: { content_id: string }) => r.content_id)
     .filter(Boolean);
   if (contentIds.length === 0) {
-    return NextResponse.json({ library: [] });
+    return jsonPrivateNoStore({ library: [] });
   }
 
   const { data: movieRows, error: moviesError } = await (async () => {
@@ -131,5 +128,5 @@ export async function GET() {
     });
   }
 
-  return NextResponse.json({ library });
+  return jsonPrivateNoStore({ library });
 }

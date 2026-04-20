@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useSyncExternalStore } from 'react';
 import { FiMoon, FiSun } from 'react-icons/fi';
 import { useTranslations } from 'next-intl';
 
@@ -11,15 +11,27 @@ function readDarkFromDom(): boolean {
   return document.documentElement.classList.contains('dark');
 }
 
+function subscribeToThemeChange(onStoreChange: () => void): () => void {
+  if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') {
+    return () => {};
+  }
+
+  const observer = new MutationObserver(() => onStoreChange());
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['class'],
+  });
+  return () => observer.disconnect();
+}
+
+function subscribeToHydration(): () => void {
+  return () => {};
+}
+
 export default function ThemeToggle({ className = '' }: { className?: string }) {
   const t = useTranslations('nav');
-  const [dark, setDark] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setDark(readDarkFromDom());
-    setMounted(true);
-  }, []);
+  const dark = useSyncExternalStore(subscribeToThemeChange, readDarkFromDom, () => false);
+  const mounted = useSyncExternalStore(subscribeToHydration, () => true, () => false);
 
   const toggle = useCallback(() => {
     const next = !readDarkFromDom();
@@ -29,7 +41,6 @@ export default function ThemeToggle({ className = '' }: { className?: string }) 
     } catch {
       /* ignore */
     }
-    setDark(next);
   }, []);
 
   const baseBtn =

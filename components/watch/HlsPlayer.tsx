@@ -33,6 +33,34 @@ function levelLabel(level: { height?: number; width?: number; bitrate?: number }
   return `Level ${index + 1}`;
 }
 
+function getDefaultBandwidthEstimate(): number {
+  if (typeof navigator === 'undefined') return 1_500_000;
+
+  const connection = (
+    navigator as Navigator & {
+      connection?: { effectiveType?: string; downlink?: number; saveData?: boolean };
+    }
+  ).connection;
+
+  if (connection?.saveData) return 250_000;
+
+  if (typeof connection?.downlink === 'number' && Number.isFinite(connection.downlink) && connection.downlink > 0) {
+    return Math.max(250_000, Math.round(connection.downlink * 1_000_000 * 0.7));
+  }
+
+  switch (connection?.effectiveType) {
+    case 'slow-2g':
+      return 120_000;
+    case '2g':
+      return 250_000;
+    case '3g':
+      return 700_000;
+    case '4g':
+    default:
+      return 1_500_000;
+  }
+}
+
 type QualityMode = 'idle' | 'hls-multi' | 'hls-single' | 'native' | 'progressive';
 
 export default function HlsPlayer({
@@ -69,15 +97,8 @@ export default function HlsPlayer({
   const [isPlayerReady, setIsPlayerReady] = useState(false);
   const [isBuffering, setIsBuffering] = useState(() => Boolean(manifestUrl || fallbackUrl));
   const [bufferedPct, setBufferedPct] = useState(0);
-  const [showBufferingSpinner, setShowBufferingSpinner] = useState(false);
-
-  // Debounce mid-play buffering spinner — prevents flicker on fast seeks/mobile stall events
-  useEffect(() => {
-    const shouldShow = isPlayerReady && isBuffering;
-    if (!shouldShow) { setShowBufferingSpinner(false); return; }
-    const id = setTimeout(() => setShowBufferingSpinner(true), 400);
-    return () => clearTimeout(id);
-  }, [isPlayerReady, isBuffering]);
+  const defaultBandwidthEstimate = getDefaultBandwidthEstimate();
+  const showBufferingSpinner = isPlayerReady && isBuffering;
 
   // Browsers block autoplay with audio — retry muted so playback always starts
   async function tryAutoPlay(video: HTMLVideoElement) {
@@ -134,9 +155,10 @@ export default function HlsPlayer({
     if (manifestUrl && Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
+        capLevelToPlayerSize: true,
         // Start at lowest quality so slow connections begin playing immediately
         startLevel: -1,
-        abrEwmaDefaultEstimate: 500_000, // assume 500 kbps until measured
+        abrEwmaDefaultEstimate: defaultBandwidthEstimate,
         // Buffer aggressively so brief connection drops don't stall playback
         maxBufferLength: 60,
         maxMaxBufferLength: 120,
@@ -213,7 +235,7 @@ export default function HlsPlayer({
       scheduleQualityModeReset('progressive');
       if (autoPlay) void tryAutoPlay(video);
     }
-  }, [manifestUrl, fallbackUrl, autoPlay, onError, scheduleQualityModeReset]);
+  }, [manifestUrl, fallbackUrl, autoPlay, onError, scheduleQualityModeReset, defaultBandwidthEstimate]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -344,16 +366,6 @@ export default function HlsPlayer({
     };
   }, []);
 
-  useEffect(() => {
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === 'ArrowLeft') { e.preventDefault(); rewind10(); }
-      else if (e.key === 'ArrowRight') { e.preventDefault(); forward10(); }
-    }
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [duration]);
-
   const onQualityChange = useCallback((value: string) => {
     setSelectedQuality(value);
     const hls = hlsRef.current;
@@ -400,7 +412,11 @@ export default function HlsPlayer({
 
     // iOS Safari: div.requestFullscreen doesn't exist — must use video.webkitEnterFullscreen
     if (!anyEl.requestFullscreen && !anyEl.webkitRequestFullscreen && typeof vid.webkitEnterFullscreen === 'function') {
-      vid.webkitDisplayingFullscreen ? vid.webkitExitFullscreen?.() : vid.webkitEnterFullscreen();
+      if (vid.webkitDisplayingFullscreen) {
+        vid.webkitExitFullscreen?.();
+      } else {
+        vid.webkitEnterFullscreen();
+      }
       return;
     }
 
@@ -421,12 +437,12 @@ export default function HlsPlayer({
     keepControlsVisible();
   }
 
-  function onSeek(val: number) {
+  const onSeek = useCallback((val: number) => {
     const video = videoRef.current;
     if (!video) return;
     video.currentTime = val;
     setCurrentTime(val);
-  }
+  }, []);
 
   function seekFromEvent(e: MouseEvent | TouchEvent) {
     const bar = seekBarRef.current;
@@ -472,17 +488,32 @@ export default function HlsPlayer({
     video.muted = !video.muted;
   }
 
-  function rewind10() {
+  const rewind10 = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
     onSeek(Math.max(0, video.currentTime - 10));
-  }
+  }, [onSeek]);
 
-  function forward10() {
+  const forward10 = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
     onSeek(Math.min(duration || 0, video.currentTime + 10));
-  }
+  }, [duration, onSeek]);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        rewind10();
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        forward10();
+      }
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [forward10, rewind10]);
 
   const showQualityEntry =
     qualityMode !== 'idle' && (Boolean(manifestUrl) || Boolean(fallbackUrl));

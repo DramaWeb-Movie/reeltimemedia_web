@@ -1,4 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  escapeForILike,
+  getCatalogReleaseYear,
+  normalizeCatalogQuery,
+  resolveCatalogContentType,
+  resolveCatalogEpisodes,
+  resolveCatalogImage,
+  splitCatalogGenres,
+} from '@/lib/catalog/shared';
 import { createAnonClient } from '@/lib/supabase/server';
 import type { MovieCard } from '@/lib/movies';
 import { enforceRateLimit } from '@/lib/api/rateLimit';
@@ -9,8 +18,6 @@ const CARD_COLUMNS_LEGACY =
   'id, title, title_kh, description, genre, release_date, thumbnail_url, type, price, free_episodes_count, total_episodes';
 const CARD_COLUMNS_TYPO =
   'id, title, title_kh, description, genre, release_date, thumnail_url, cover_url, type, price, free_episodes_count, total_episodes';
-
-const PLACEHOLDER_IMAGE = 'https://placehold.co/400x600/1a1a1a/808080?text=No+Image';
 
 type SearchMovieRow = {
   id: string;
@@ -28,18 +35,6 @@ type SearchMovieRow = {
   total_episodes?: number | null;
 };
 
-function normalizeSearchQuery(input: string): string {
-  return input
-    .normalize('NFKC')
-    .replace(/[%_*()[\]{}<>"'`;$\\]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function escapeForILike(value: string): string {
-  return value.replace(/[%_]/g, (m) => `\\${m}`);
-}
-
 export async function GET(request: NextRequest) {
   const blocked = await enforceRateLimit(
     request,
@@ -55,7 +50,7 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = request.nextUrl;
   const qRaw = searchParams.get('q')?.trim() ?? '';
-  const q = normalizeSearchQuery(qRaw);
+  const q = normalizeCatalogQuery(qRaw);
   const limit = Math.min(Number(searchParams.get('limit') ?? 20), 50);
 
   if (!q || q.length < 2) {
@@ -103,27 +98,19 @@ export async function GET(request: NextRequest) {
 
   const rows = (data ?? []) as unknown as SearchMovieRow[];
   const results: MovieCard[] = rows.map((row) => {
-    const contentType = row.type === 'series' ? 'series' : 'movie';
-    const episodes = contentType === 'series' ? Math.max(1, row.total_episodes ?? 1) : 1;
-    const genres = row.genre
-      ? (row.genre as string).split(',').map((g: string) => g.trim()).filter(Boolean)
-      : undefined;
+    const contentType = resolveCatalogContentType(row);
+    const episodes = resolveCatalogEpisodes(row);
+    const genres = splitCatalogGenres(row);
     return {
       id: row.id,
       title: row.title,
       titleKh: row.title_kh?.trim() || undefined,
       episodes,
-      image:
-        (row.cover_url as string | null)?.trim()
-        || (row.thumbnail_url as string | null)?.trim()
-        || (row.thumnail_url as string | null)?.trim()
-        || PLACEHOLDER_IMAGE,
+      image: resolveCatalogImage(row),
       contentType,
       description: row.description ?? undefined,
       genres,
-      year: row.release_date
-        ? new Date(row.release_date as string).getFullYear().toString()
-        : undefined,
+      year: getCatalogReleaseYear(row),
       ...(contentType === 'movie' && row.price != null && { price: Number(row.price) }),
       freeEpisodesCount:
         row.free_episodes_count != null ? Number(row.free_episodes_count) : undefined,

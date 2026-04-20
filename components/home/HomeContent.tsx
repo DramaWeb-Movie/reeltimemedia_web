@@ -151,12 +151,6 @@ export default function HomeContent({ featuredItems, promotionItems }: HomeConte
   }, [promoSlides.length]);
 
   useEffect(() => {
-    if (activePromoIndex >= promoSlides.length) {
-      setActivePromoIndex(0);
-    }
-  }, [activePromoIndex, promoSlides.length]);
-
-  useEffect(() => {
     const sections = Array.from(document.querySelectorAll<HTMLElement>('.reveal-on-scroll'));
     if (!sections.length) return;
 
@@ -176,7 +170,11 @@ export default function HomeContent({ featuredItems, promotionItems }: HomeConte
     return () => observer.disconnect();
   }, []);
 
-  const activeSlide = promoSlides[activePromoIndex];
+  const promoSlideCount = promoSlides.length;
+  const normalizedActivePromoIndex = promoSlideCount > 0
+    ? activePromoIndex % promoSlideCount
+    : 0;
+  const activeSlide = promoSlides[normalizedActivePromoIndex];
   const isMovieSlide = activeSlide.type === 'movie';
   const isFreeMovieSlide = isMovieSlide && (activeSlide.price == null || activeSlide.price <= 0);
   const hasPurchasedMovieSlide = isMovieSlide && !!activeSlide.movieId && purchasedSet.has(activeSlide.movieId);
@@ -239,9 +237,9 @@ export default function HomeContent({ featuredItems, promotionItems }: HomeConte
                     <FiDollarSign className="text-sm" />
                     {activeSlide.badge}
                   </p>
-                  {promoSlides.length > 1 && (
+                  {promoSlideCount > 1 && (
                     <span className="rounded-full bg-black/25 border border-white/20 px-3 py-1 text-xs font-medium text-white/90">
-                      {activePromoIndex + 1} / {promoSlides.length}
+                      {normalizedActivePromoIndex + 1} / {promoSlideCount}
                     </span>
                   )}
                 </div>
@@ -319,11 +317,11 @@ export default function HomeContent({ featuredItems, promotionItems }: HomeConte
               )}
             </div>
 
-            {promoSlides.length > 1 && (
+            {promoSlideCount > 1 && (
               <>
                 <button
                   type="button"
-                  onClick={() => setActivePromoIndex((prev) => (prev - 1 + promoSlides.length) % promoSlides.length)}
+                  onClick={() => setActivePromoIndex((prev) => (prev - 1 + promoSlideCount) % promoSlideCount)}
                   className="absolute left-3 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-black/35 hover:bg-black/50 border border-white/20 flex items-center justify-center backdrop-blur-sm transition-colors"
                   aria-label="Previous promo slide"
                 >
@@ -331,7 +329,7 @@ export default function HomeContent({ featuredItems, promotionItems }: HomeConte
                 </button>
                 <button
                   type="button"
-                  onClick={() => setActivePromoIndex((prev) => (prev + 1) % promoSlides.length)}
+                  onClick={() => setActivePromoIndex((prev) => (prev + 1) % promoSlideCount)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-black/35 hover:bg-black/50 border border-white/20 flex items-center justify-center backdrop-blur-sm transition-colors"
                   aria-label="Next promo slide"
                 >
@@ -344,7 +342,7 @@ export default function HomeContent({ featuredItems, promotionItems }: HomeConte
                       key={slide.id}
                       type="button"
                       onClick={() => setActivePromoIndex(idx)}
-                      className={`h-2.5 rounded-full transition-all ${idx === activePromoIndex ? 'w-7 bg-white dark:!bg-white' : 'w-2.5 bg-white/45 hover:bg-white/80'}`}
+                      className={`h-2.5 rounded-full transition-all ${idx === normalizedActivePromoIndex ? 'w-7 bg-white dark:!bg-white' : 'w-2.5 bg-white/45 hover:bg-white/80'}`}
                       aria-label={`Go to promo slide ${idx + 1}`}
                     />
                   ))}

@@ -1,13 +1,11 @@
 import { NextRequest } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { enforceRateLimit } from '@/lib/api/rateLimit';
-import { getAuthenticatedUserId } from '@/lib/supabase/authUser';
 import { fetchWithBudget } from '@/lib/utils/fetchWithBudget';
-import { isR2Url } from '@/lib/r2';
-import { isWatchRequestFromOurSite } from '@/lib/watch/requestOrigin';
+import { getR2PresignedUrl, isR2Url } from '@/lib/r2';
 import { getVideoUrlForPlayback } from '@/lib/watch/playbackAccess';
-import { getPlaybackMetadata, setPlaybackMetadata } from '@/lib/watch/playbackMetadata';
-import { getPlaybackTokenTtlSeconds, verifyPlaybackToken } from '@/lib/watch/playbackToken';
+import { setPlaybackMetadata } from '@/lib/watch/playbackMetadata';
+import { authorizePlaybackRequest } from '@/lib/watch/playbackRequest';
+import { getPlaybackTokenTtlSeconds } from '@/lib/watch/playbackToken';
 
 /**
  * Stream video through the server so the real storage URL is never exposed.
@@ -27,37 +25,11 @@ export async function GET(request: NextRequest) {
   );
   if (blocked) return blocked;
 
-  if (!isWatchRequestFromOurSite(request)) {
-    const home = process.env.NEXT_PUBLIC_APP_URL?.trim()?.replace(/\/$/, '') || request.nextUrl.origin;
-    return new Response(null, { status: 302, headers: { Location: `${home}/` } });
-  }
+  const auth = await authorizePlaybackRequest(request);
+  if (!auth.ok) return auth.response;
 
-  const { searchParams } = new URL(request.url);
-  const token = searchParams.get('token');
-  if (!token?.trim()) {
-    return new Response('Missing playback token', { status: 401 });
-  }
-
-  const claims = await verifyPlaybackToken(token.trim());
-  if (!claims) {
-    return new Response('Invalid or expired playback token', { status: 401 });
-  }
-
-  if (claims.sub !== 'anon') {
-    const supabase = await createClient();
-    const userId = await getAuthenticatedUserId(supabase);
-    if (!userId || userId !== claims.sub) {
-      return new Response('Forbidden', { status: 403 });
-    }
-  }
-
-  const cachedMetadata = await getPlaybackMetadata(claims.playbackKey);
-  let videoUrl =
-    cachedMetadata &&
-    cachedMetadata.contentId === claims.contentId &&
-    cachedMetadata.ep === claims.ep
-      ? cachedMetadata.videoUrl
-      : null;
+  const { claims, cachedMetadata } = auth;
+  let videoUrl = cachedMetadata?.videoUrl ?? null;
 
   if (!videoUrl) {
     videoUrl = await getVideoUrlForPlayback(claims.contentId, claims.ep);
@@ -81,12 +53,19 @@ export async function GET(request: NextRequest) {
 
   // Redirect to the public R2 URL so the browser fetches the video directly from
   // Cloudflare CDN instead of proxying every byte through Vercel.
-  // r2.cloudflarestorage.com presigned URLs have TLS cipher issues in browsers;
-  // the pub-*.r2.dev CDN URL works cleanly. Auth is already enforced above via JWT.
+  // Prefer a short-lived presigned URL when credentials are available; fall back
+  // to the stored public URL for legacy setups.
   if (isR2Url(videoUrl)) {
+    const signedUrl = await getR2PresignedUrl(
+      videoUrl,
+      Math.max(60, getPlaybackTokenTtlSeconds())
+    );
     return new Response(null, {
       status: 302,
-      headers: { Location: videoUrl, 'Cache-Control': 'no-store' },
+      headers: {
+        Location: signedUrl ?? videoUrl,
+        'Cache-Control': 'no-store',
+      },
     });
   }
 

@@ -21,6 +21,9 @@ interface WatchAccessGateProps {
 }
 
 type SessionData = { playbackUrl: string; hlsManifestUrl?: string; expiresInSeconds: number };
+type SessionFetchResult =
+  | { ok: true; data: SessionData }
+  | { ok: false; status: number; error: string | null };
 
 export default function WatchAccessGate({
   contentId,
@@ -41,9 +44,11 @@ export default function WatchAccessGate({
   const [playbackUrl, setPlaybackUrl] = useState<string | null>(null);
   const [hlsManifestUrl, setHlsManifestUrl] = useState<string | null>(null);
   const [sessionLoading, setSessionLoading] = useState(false);
+  const sessionLoadingRef = useRef(false);
   const [sessionError, setSessionError] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
   const [deniedByAuth, setDeniedByAuth] = useState(false);
+  const [processingMessage, setProcessingMessage] = useState<string | null>(null);
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastErrorRetryAtRef = useRef(0);
   const errorRetryInFlightRef = useRef(false);
@@ -58,7 +63,7 @@ export default function WatchAccessGate({
   }, []);
 
   const fetchSessionForEp = useCallback(
-    async (ep: number): Promise<SessionData | null> => {
+    async (ep: number): Promise<SessionFetchResult> => {
       try {
         const res = await fetch('/api/watch/session', {
           method: 'POST',
@@ -67,19 +72,29 @@ export default function WatchAccessGate({
           body: JSON.stringify({ contentId, ep }),
         });
         const data = (await res.json().catch(() => null)) as {
+          error?: string;
           playbackUrl?: string;
           hlsManifestUrl?: string;
           expiresInSeconds?: number;
         } | null;
-        if (!res.ok || !data?.playbackUrl) return null;
+        if (!res.ok || !data?.playbackUrl) {
+          return {
+            ok: false,
+            status: res.status,
+            error: typeof data?.error === 'string' ? data.error : null,
+          };
+        }
         return {
-          playbackUrl: data.playbackUrl,
-          hlsManifestUrl: data.hlsManifestUrl,
-          expiresInSeconds: typeof data.expiresInSeconds === 'number' && data.expiresInSeconds > 0
-            ? data.expiresInSeconds : 900,
+          ok: true,
+          data: {
+            playbackUrl: data.playbackUrl,
+            hlsManifestUrl: data.hlsManifestUrl,
+            expiresInSeconds: typeof data.expiresInSeconds === 'number' && data.expiresInSeconds > 0
+              ? data.expiresInSeconds : 900,
+          },
         };
       } catch {
-        return null;
+        return { ok: false, status: 0, error: null };
       }
     },
     [contentId]
@@ -91,9 +106,10 @@ export default function WatchAccessGate({
       const nextEp = currentEpNum + 1;
       if (totalEpisodes && nextEp > totalEpisodes) return;
       if (prefetchCacheRef.current.has(nextEp)) return;
-      // Fire-and-forget: cache the session and warm the HLS manifest cache
-      void fetchSessionForEp(nextEp).then((data) => {
-        if (!data) return;
+      // Fire-and-forget: cache the session and warm the HLS manifest cache.
+      void fetchSessionForEp(nextEp).then((result) => {
+        if (!result.ok) return;
+        const data = result.data;
         prefetchCacheRef.current.set(nextEp, data);
         // Fetching the manifest URL populates resolveAdaptiveManifestUrl's unstable_cache
         // so the next episode's manifest is served instantly when the user navigates.
@@ -116,45 +132,49 @@ export default function WatchAccessGate({
         setSessionError(false);
         setAccessDenied(false);
         setDeniedByAuth(false);
+        setProcessingMessage(null);
         return { ok: true as const, expiresInSeconds: cached.expiresInSeconds, denied: false as const };
       }
 
+      sessionLoadingRef.current = true;
       setSessionLoading(true);
-      if (!opts?.afterError) setSessionError(false);
+      if (!opts?.afterError) {
+        setSessionError(false);
+        setProcessingMessage(null);
+      }
       try {
-        const data = await fetchSessionForEp(currentEp);
-        if (!data) {
-          // Re-fetch to get the proper status code for error classification
-          const res = await fetch('/api/watch/session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ contentId, ep: currentEp }),
-          });
+        const result = await fetchSessionForEp(currentEp);
+        if (!result.ok) {
           setPlaybackUrl(null);
           setHlsManifestUrl(null);
-          const denied = res.status === 401 || res.status === 403;
+          const denied = result.status === 401 || result.status === 403;
           setAccessDenied(denied);
-          setDeniedByAuth(res.status === 401);
-          setSessionError(!denied);
+          setDeniedByAuth(result.status === 401);
+          const processing = result.status === 409;
+          setProcessingMessage(processing ? (result.error ?? t('videoPreparing')) : null);
+          setSessionError(!denied && !processing);
           return { ok: false as const, expiresInSeconds: 0, denied };
         }
+        const data = result.data;
         setPlaybackUrl(data.playbackUrl);
         setHlsManifestUrl(data.hlsManifestUrl ?? null);
         setSessionError(false);
         setAccessDenied(false);
         setDeniedByAuth(false);
+        setProcessingMessage(null);
         return { ok: true as const, expiresInSeconds: data.expiresInSeconds, denied: false as const };
       } catch {
         setPlaybackUrl(null);
         setHlsManifestUrl(null);
         setSessionError(true);
+        setProcessingMessage(null);
         return { ok: false as const, expiresInSeconds: 0, denied: false as const };
       } finally {
+        sessionLoadingRef.current = false;
         setSessionLoading(false);
       }
     },
-    [contentId, currentEp, fetchSessionForEp]
+    [currentEp, fetchSessionForEp, t]
   );
 
   const scheduleProactiveRefresh = useCallback(
@@ -199,7 +219,7 @@ export default function WatchAccessGate({
   ]);
 
   const handleVideoError = useCallback(() => {
-    if (sessionLoading) return;
+    if (sessionLoadingRef.current) return;
     if (errorRetryInFlightRef.current) return;
     const now = Date.now();
     // Avoid request storms when the browser emits repeated media errors.
@@ -216,7 +236,7 @@ export default function WatchAccessGate({
         errorRetryInFlightRef.current = false;
       }
     })();
-  }, [fetchPlaybackSession, scheduleProactiveRefresh, sessionLoading]);
+  }, [fetchPlaybackSession, scheduleProactiveRefresh]);
 
   if (accessDenied) {
     const isMovie = contentType === 'movie';
@@ -263,6 +283,27 @@ export default function WatchAccessGate({
           onClick={() => void fetchPlaybackSession()}
         >
           <FiRefreshCw className="text-lg" /> {t('resumePlayback')}
+        </Button>
+      </div>
+    );
+  }
+
+  if (processingMessage && !playbackUrl && !hlsManifestUrl && !sessionLoading) {
+    return (
+      <div className="overflow-hidden bg-white border border-gray-200 shadow-sm flex flex-col items-center justify-center aspect-video px-6 text-center">
+        <p className="text-gray-900 text-base font-semibold mb-2">{t('videoPreparing')}</p>
+        <p className="text-gray-600 text-sm mb-4 max-w-md">
+          {processingMessage === 'Video is still processing'
+            ? t('videoPreparingDesc')
+            : processingMessage}
+        </p>
+        <Button
+          type="button"
+          className="flex items-center gap-2"
+          size="md"
+          onClick={() => void fetchPlaybackSession()}
+        >
+          <FiRefreshCw className="text-lg" /> {t('checkAgain')}
         </Button>
       </div>
     );

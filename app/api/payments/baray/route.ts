@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthenticatedServerUser } from '@/lib/supabase/serverUser';
 import {
   createPaymentIntent,
   generateOrderId,
@@ -9,6 +9,13 @@ import {
   BarayPaymentPayload,
 } from '@/lib/baray';
 import { enforceRateLimit } from '@/lib/api/rateLimit';
+import {
+  barayErrorResponse,
+  baraySuccessResponse,
+  parseBarayCreatePaymentBody,
+  resolveBarayBaseUrl,
+  storePendingBarayPayment,
+} from '@/lib/baray/server';
 
 export async function POST(request: NextRequest) {
   const blocked = await enforceRateLimit(
@@ -24,49 +31,22 @@ export async function POST(request: NextRequest) {
   if (blocked) return blocked;
 
   try {
-    const body = await request.json();
-    const { amount, currency = 'USD', contentType, contentId, contentTitle } = body;
+    const parsed = parseBarayCreatePaymentBody(await request.json());
+    if (!parsed.ok) return parsed.response;
 
-    // Validate required fields
-    if (!amount || !contentTitle) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Missing required fields: amount, contentTitle' } },
-        { status: 400 }
-      );
-    }
-
-    // Validate amount
-    const numericAmount = parseFloat(amount);
-    if (isNaN(numericAmount) || numericAmount <= 0) {
-      return NextResponse.json(
-        { success: false, error: { message: 'Invalid amount' } },
-        { status: 400 }
-      );
-    }
-
-    // Validate minimum amounts
-    if (currency === 'USD' && numericAmount < 0.03) {
-      return NextResponse.json(
-        { success: false, error: { message: 'USD amount must be >= $0.03' } },
-        { status: 400 }
-      );
-    }
-    if (currency === 'KHR' && numericAmount < 100) {
-      return NextResponse.json(
-        { success: false, error: { message: 'KHR amount must be >= 100 KHR' } },
-        { status: 400 }
-      );
-    }
+    const {
+      amount: numericAmount,
+      currency,
+      contentType,
+      contentId,
+      contentTitle,
+    } = parsed.data;
 
     // Get authenticated user (required for purchases)
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { supabase, user } = await getAuthenticatedServerUser();
 
     if (!user) {
-      return NextResponse.json(
-        { success: false, error: { message: 'You must be signed in to create a payment.' } },
-        { status: 401 }
-      );
+      return barayErrorResponse('You must be signed in to create a payment.', 401);
     }
 
     // Validate amount against the real price stored in the database to prevent price manipulation
@@ -79,18 +59,12 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (movieError || !movie) {
-        return NextResponse.json(
-          { success: false, error: { message: 'Content not found.' } },
-          { status: 404 }
-        );
+        return barayErrorResponse('Content not found.', 404);
       }
 
       const expectedPrice = parseFloat(movie.price ?? '0');
       if (Math.abs(numericAmount - expectedPrice) > 0.01) {
-        return NextResponse.json(
-          { success: false, error: { message: 'Payment amount does not match the listed price.' } },
-          { status: 400 }
-        );
+        return barayErrorResponse('Payment amount does not match the listed price.', 400);
       }
     }
 
@@ -104,10 +78,7 @@ export async function POST(request: NextRequest) {
       if (!planError && plan) {
         const expectedPrice = parseFloat(plan.monthly_price ?? '0');
         if (Math.abs(numericAmount - expectedPrice) > 0.01) {
-          return NextResponse.json(
-            { success: false, error: { message: 'Payment amount does not match the listed price.' } },
-            { status: 400 }
-          );
+          return barayErrorResponse('Payment amount does not match the listed price.', 400);
         }
       }
     }
@@ -116,16 +87,7 @@ export async function POST(request: NextRequest) {
     const orderId = generateOrderId('RTM'); // ReelTime Media prefix
 
     // Build success URL: prefer env (if not localhost), else request origin so deployment never redirects to localhost
-    const envUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
-    const origin = request.headers.get('origin');
-    const proto = request.headers.get('x-forwarded-proto');
-    const host = request.headers.get('x-forwarded-host');
-    const fromRequest = origin || (proto && host ? `${proto}://${host}` : null);
-    const baseUrl =
-      (envUrl && !envUrl.includes('localhost') ? envUrl : null) ||
-      fromRequest ||
-      envUrl ||
-      'http://localhost:3000';
+    const baseUrl = resolveBarayBaseUrl(request);
     const successUrl = buildSuccessUrl(baseUrl, orderId, contentId);
     const failUrl = buildFailUrl(baseUrl, orderId, user.id, contentId);
 
@@ -151,27 +113,22 @@ export async function POST(request: NextRequest) {
     const result = await createPaymentIntent(payload);
 
     if (!result.success) {
-      return NextResponse.json(
-        { success: false, error: { message: result.error } },
-        { status: 400 }
-      );
+      return barayErrorResponse(result.error ?? 'Failed to create payment', 400);
     }
 
     // Store payment record in database (optional if service role key is not set)
     if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
       try {
         const adminClient = createAdminClient();
-        const { error: dbError } = await adminClient.from('payments').insert({
-          user_id: user?.id || null,
-          qr_id: result.intent_id,
-          content_type: contentType || 'movie',
-          content_id: contentId || null,
-          content_title: contentTitle,
+        const dbError = await storePendingBarayPayment(adminClient, {
+          userId: user.id,
+          intentId: result.intent_id!,
+          contentType,
+          contentId,
+          contentTitle,
           amount: numericAmount,
-          currency: currency,
-          status: 'pending',
-          reference: orderId,
-          payment_method: 'baray',
+          currency,
+          orderId,
         });
         if (dbError) console.error('Failed to store payment record:', dbError);
       } catch (e) {
@@ -179,19 +136,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        intent_id: result.intent_id,
-        payment_url: result.payment_url,
-        order_id: orderId,
-      },
+    return baraySuccessResponse({
+      intent_id: result.intent_id,
+      payment_url: result.payment_url,
+      order_id: orderId,
     });
   } catch (error) {
     console.error('Baray payment API error:', error);
-    return NextResponse.json(
-      { success: false, error: { message: 'Failed to create payment' } },
-      { status: 500 }
-    );
+    return barayErrorResponse('Failed to create payment', 500);
   }
 }

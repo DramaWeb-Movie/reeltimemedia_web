@@ -6,7 +6,7 @@ import { usePurchasedMovieIds } from '@/hooks/usePurchasedMovieIds';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import DramaCardCompact from '@/components/drama/DramaCardCompact';
 import Pagination from '@/components/shared/Pagination';
-import { DRAMA_CARD_GRID } from '@/lib/drama-grid';
+import { CATALOG_CARD_GRID } from '@/lib/catalog/grid';
 import { FiFilm, FiSearch, FiX } from 'react-icons/fi';
 import { useTranslations } from 'next-intl';
 import type { MovieCard } from '@/lib/movies';
@@ -94,7 +94,7 @@ export default function MoviesContent({
         )}
 
         {filtered.length > 0 ? (
-          <div className={DRAMA_CARD_GRID}>
+          <div className={CATALOG_CARD_GRID}>
             {filtered.map((item) => (
               <DramaCardCompact
                 key={item.id}

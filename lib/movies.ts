@@ -2,6 +2,15 @@
  * Server-side movie data from Supabase. Use from API routes or Server Components.
  */
 import { unstable_cache } from 'next/cache';
+import {
+  escapeForILike,
+  getCatalogReleaseYear,
+  normalizeCatalogQuery,
+  resolveCatalogContentType,
+  resolveCatalogEpisodes,
+  resolveCatalogImage,
+  splitCatalogGenres,
+} from '@/lib/catalog/shared';
 import { getAuthenticatedUserId } from '@/lib/supabase/authUser';
 import { createAnonClient, createClient } from '@/lib/supabase/server';
 import type { Drama, ContentType } from '@/types';
@@ -65,8 +74,6 @@ export interface FeaturedMovie extends MovieCard {
   bannerImage?: string;
 }
 
-const PLACEHOLDER_IMAGE = 'https://placehold.co/400x600/1a1a1a/808080?text=No+Image';
-
 /** Use DB content_rating only when it is a numeric score (not e.g. PG-13). */
 export function parseNumericRating(contentRating: string | null | undefined): number | undefined {
   if (!contentRating?.trim()) return undefined;
@@ -112,18 +119,6 @@ export type BrowseFilters = {
   genre?: string;
 };
 
-function normalizeBrowseQuery(input: string): string {
-  return input
-    .normalize('NFKC')
-    .replace(/[,%_*()[\]{}<>"'`;$\\]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function escapeForILike(value: string): string {
-  return value.replace(/[%_]/g, (m) => `\\${m}`);
-}
-
 function wrapLogicalGroup(content: string): string {
   return content.includes(',') ? `or(${content})` : content;
 }
@@ -162,22 +157,11 @@ function buildBrowseAccessExpression(
 }
 
 function rowToCard(row: MovieRow): MovieCard {
-  const contentType: ContentType = row.type === 'series' ? 'series' : 'movie';
-  const episodes =
-    contentType === 'series'
-      ? Math.max(1, row.total_episodes ?? 1)
-      : 1;
-  const image =
-    row.cover_url?.trim()
-    || row.thumbnail_url?.trim()
-    || row.thumnail_url?.trim()
-    || PLACEHOLDER_IMAGE;
-  const year = row.release_date
-    ? new Date(row.release_date).getFullYear().toString()
-    : undefined;
-  const genres = row.genre
-    ? row.genre.split(',').map((g) => g.trim()).filter(Boolean)
-    : undefined;
+  const contentType: ContentType = resolveCatalogContentType(row);
+  const episodes = resolveCatalogEpisodes(row);
+  const image = resolveCatalogImage(row);
+  const year = getCatalogReleaseYear(row);
+  const genres = splitCatalogGenres(row);
   const rating = parseNumericRating(row.content_rating);
   return {
     id: row.id,
@@ -196,7 +180,7 @@ function rowToCard(row: MovieRow): MovieCard {
 }
 
 function getPosterUrl(row: MovieRow): string {
-  return row.cover_url?.trim() || row.thumbnail_url?.trim() || row.thumnail_url?.trim() || PLACEHOLDER_IMAGE;
+  return resolveCatalogImage(row);
 }
 
 function getCoverUrl(row: MovieRow): string | undefined {
@@ -364,7 +348,7 @@ export async function getBrowseMoviesPage(options: BrowseFilters & {
 }): Promise<{ items: MovieCard[]; total: number }> {
   const pageSize = Math.max(1, Math.min(100, Math.floor(options.pageSize)));
   const page = Math.max(1, Math.floor(options.page));
-  const q = normalizeBrowseQuery(options.q ?? '');
+  const q = normalizeCatalogQuery(options.q ?? '');
   const access = options.access ?? 'all';
   const type = options.type ?? 'all';
   const genre = (options.genre ?? '').trim();

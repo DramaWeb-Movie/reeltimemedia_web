@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { jsonPrivateNoStore } from '@/lib/api/json';
 import { enforceRateLimit } from '@/lib/api/rateLimit';
-import { verifyPaymentFailToken } from '@/lib/payments/failToken';
+import { verifyPaymentFailToken } from '@/lib/baray/failToken';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
+import { getAuthenticatedServerUser } from '@/lib/supabase/serverUser';
 
 /**
  * Marks a payment record as failed when the user cancels or the payment fails.
@@ -29,19 +30,16 @@ export async function POST(request: NextRequest) {
       typeof body?.cancel_token === 'string' ? body.cancel_token.trim() : '';
 
     if (!orderId || !cancelToken) {
-      return NextResponse.json(
+      return jsonPrivateNoStore(
         { error: 'Missing order_id or cancel_token' },
         { status: 400 }
       );
     }
 
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { supabase, user } = await getAuthenticatedServerUser();
 
     if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return jsonPrivateNoStore({ error: 'Unauthorized' }, { status: 401 });
     }
 
     let isValidToken = false;
@@ -53,15 +51,15 @@ export async function POST(request: NextRequest) {
       });
     } catch (error) {
       console.error('Payment fail token verification error:', error);
-      return NextResponse.json({ error: 'Payment cancellation misconfigured' }, { status: 500 });
+      return jsonPrivateNoStore({ error: 'Payment cancellation misconfigured' }, { status: 500 });
     }
 
     if (!isValidToken) {
-      return NextResponse.json({ error: 'Invalid cancellation token' }, { status: 401 });
+      return jsonPrivateNoStore({ error: 'Invalid cancellation token' }, { status: 401 });
     }
 
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      return NextResponse.json({ status: 'skipped' });
+      return jsonPrivateNoStore({ status: 'skipped' });
     }
 
     const { data: payment, error: findError } = await supabase
@@ -71,12 +69,12 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (findError || !payment) {
-      return NextResponse.json({ status: 'not_found' });
+      return jsonPrivateNoStore({ status: 'not_found' });
     }
 
     // Only update if still pending — don't overwrite a completed payment
     if (payment.status !== 'pending') {
-      return NextResponse.json({ status: 'already_resolved', current: payment.status });
+      return jsonPrivateNoStore({ status: 'already_resolved', current: payment.status });
     }
 
     const adminClient = createAdminClient();
@@ -90,12 +88,12 @@ export async function POST(request: NextRequest) {
 
     if (updateError) {
       console.error('Failed to mark payment as failed:', updateError);
-      return NextResponse.json({ error: 'Update failed' }, { status: 500 });
+      return jsonPrivateNoStore({ error: 'Update failed' }, { status: 500 });
     }
 
-    return NextResponse.json({ status: 'marked_failed', order_id: orderId });
+    return jsonPrivateNoStore({ status: 'marked_failed', order_id: orderId });
   } catch (error) {
     console.error('Payment fail handler error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return jsonPrivateNoStore({ error: 'Internal server error' }, { status: 500 });
   }
 }

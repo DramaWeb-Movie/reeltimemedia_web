@@ -7,13 +7,12 @@ import { FaStar } from 'react-icons/fa';
 import { FiPlay, FiCalendar, FiFilm, FiUsers } from 'react-icons/fi';
 import { getTranslations } from 'next-intl/server';
 import DramaActionButtons from '@/components/drama/DramaActionButtons';
+import { isFreeMovie as catalogIsFreeMovie } from '@/lib/catalog/pricing';
 import { getMovieById, hasPurchasedContent } from '@/lib/movies';
+import { getServerSiteBaseUrl, toAbsoluteUrl } from '@/lib/site/serverBaseUrl';
 import { getYoutubeEmbedUrl } from '@/lib/youtube';
 
-// Deduplicate within a single render pass (generateMetadata + page component)
 const getMovie = cache(getMovieById);
-
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? '';
 
 type DramaPageParams = { params: Promise<{ id: string }> };
 
@@ -26,17 +25,8 @@ function SectionHeading({ children }: { children: ReactNode }) {
   );
 }
 
-function absoluteUrl(url: string | undefined | null): string | undefined {
-  if (!url) return undefined;
-  if (/^https?:\/\//i.test(url)) return url;
-  try {
-    return new URL(url, SITE_URL).toString();
-  } catch {
-    return undefined;
-  }
-}
-
 export async function generateMetadata({ params }: DramaPageParams): Promise<Metadata> {
+  const siteBase = await getServerSiteBaseUrl();
   const { id } = await params;
   const drama = await getMovie(id);
   const t = await getTranslations('drama');
@@ -51,8 +41,8 @@ export async function generateMetadata({ params }: DramaPageParams): Promise<Met
   const title = drama.titleKh ? `${drama.title} (${drama.titleKh})` : drama.title;
   const description =
     drama.description?.trim() || t('metadataDefaultDesc', { title: drama.title });
-  const url = absoluteUrl(`/drama/${id}`) ?? `/drama/${id}`;
-  const image = absoluteUrl(drama.posterUrl || drama.bannerUrl);
+  const url = toAbsoluteUrl(siteBase, `/drama/${id}`) ?? `/drama/${id}`;
+  const image = toAbsoluteUrl(siteBase, drama.posterUrl || drama.bannerUrl);
 
   return {
     title: `${drama.title} - ReelTime Media`,
@@ -92,7 +82,7 @@ export default async function DramaDetailPage({ params }: DramaPageParams) {
   }
 
   const trailerEmbedUrl = drama.trailerUrl ? getYoutubeEmbedUrl(drama.trailerUrl) : null;
-  const isFreeMovie = drama.contentType === 'movie' && (drama.price == null || drama.price === 0);
+  const isFreeMovie = catalogIsFreeMovie(drama.contentType, drama.price);
   const isPaidMovie = drama.contentType === 'movie' && drama.price != null && drama.price > 0;
 
   const hasPurchasedMovie = isPaidMovie
@@ -173,7 +163,6 @@ export default async function DramaDetailPage({ params }: DramaPageParams) {
                 {drama.status === 'completed' ? t('completed') : t('ongoing')}
               </span>
             </div>
-            {/* Action buttons in hero (desktop/tablet only) */}
             <div className="mt-5 hidden md:flex flex-wrap gap-3">
               <DramaActionButtons {...actionButtonProps} variant="hero" />
             </div>

@@ -15,25 +15,3 @@ export function resolveContentKind(item: Pick<MovieCard, 'contentType' | 'episod
   if (item.contentType === 'series' || item.episodes > 1) return 'series';
   return 'movie';
 }
-
-/** Format a duration given in seconds to a human-readable string (e.g. "1h 23m"). */
-export function formatDuration(seconds: number): string {
-  const totalMinutes = Math.floor(seconds / 60);
-  const hours = Math.floor(totalMinutes / 60);
-  const mins = totalMinutes % 60;
-  return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
-}
-
-export function formatDate(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-}
-
-export function truncateText(text: string, maxLength: number): string {
-  if (text.length <= maxLength) return text;
-  return text.substring(0, maxLength) + '…';
-}

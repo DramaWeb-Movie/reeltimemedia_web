@@ -49,10 +49,3 @@ export interface BarayPaymentResult {
   payment_url?: string;
   error?: string;
 }
-
-export interface BarayOrderStatus {
-  order_id: string;
-  status: 'pending' | 'completed' | 'failed';
-  bank?: string;
-  paid_at?: string;
-}

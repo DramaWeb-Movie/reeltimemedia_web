@@ -3,9 +3,9 @@ import { enforceRateLimit } from '@/lib/api/rateLimit';
 import { fetchWithBudget } from '@/lib/utils/fetchWithBudget';
 import { resolveAdaptiveManifestUrl } from '@/lib/watch/hlsManifest';
 import { getHlsManifestUrlForPlayback } from '@/lib/watch/playbackAccess';
-import { getPlaybackMetadata, setPlaybackMetadata } from '@/lib/watch/playbackMetadata';
-import { getPlaybackTokenTtlSeconds, verifyPlaybackToken } from '@/lib/watch/playbackToken';
-import { isWatchRequestFromOurSite } from '@/lib/watch/requestOrigin';
+import { setPlaybackMetadata } from '@/lib/watch/playbackMetadata';
+import { authorizePlaybackRequest } from '@/lib/watch/playbackRequest';
+import { getPlaybackTokenTtlSeconds } from '@/lib/watch/playbackToken';
 
 const HLS_ACCEPT_HEADER = 'application/vnd.apple.mpegurl,application/x-mpegURL,text/plain,*/*';
 
@@ -16,6 +16,10 @@ function manifestDirectory(pathname: string): string {
 
 function isHttpUrl(url: URL): boolean {
   return url.protocol === 'http:' || url.protocol === 'https:';
+}
+
+function isManifestPath(pathname: string): boolean {
+  return pathname.toLowerCase().endsWith('.m3u8');
 }
 
 function isAllowedTarget(rootManifestUrl: string, rawTargetUrl: string): boolean {
@@ -38,16 +42,23 @@ function buildProxyUrl(request: NextRequest, token: string, targetUrl: string): 
   return proxyUrl.toString();
 }
 
-function toProxyUrl(
+function toPlaybackUrl(
   rawValue: string,
   currentManifestUrl: string,
   request: NextRequest,
-  token: string
+  token: string,
 ): string | null {
   try {
     const resolved = new URL(rawValue, currentManifestUrl);
     if (!isHttpUrl(resolved)) return null;
-    return buildProxyUrl(request, token, resolved.toString());
+    const resolvedUrl = resolved.toString();
+    if (isManifestPath(resolved.pathname)) {
+      return buildProxyUrl(request, token, resolvedUrl);
+    }
+    // Return the CDN URL directly. Presigning would convert pub-*.r2.dev URLs to
+    // r2.cloudflarestorage.com which lacks browser CORS headers, breaking HLS.js
+    // segment fetches. The public R2 host already has permissive CORS.
+    return resolvedUrl;
   } catch {
     return null;
   }
@@ -57,26 +68,33 @@ function rewriteManifestLine(
   line: string,
   currentManifestUrl: string,
   request: NextRequest,
-  token: string
+  token: string,
 ): string {
   const trimmed = line.trim();
   if (!trimmed) return line;
 
   if (trimmed.startsWith('#')) {
-    return line.replace(/URI=(["'])(.+?)\1/g, (match, quote, value: string) => {
-      const proxied = toProxyUrl(value, currentManifestUrl, request, token);
-      return proxied ? `URI=${quote}${proxied}${quote}` : match;
-    });
+    const matches = Array.from(line.matchAll(/URI=(["'])(.+?)\1/g));
+    if (!matches.length) return line;
+
+    let rewrittenLine = line;
+    for (const match of matches) {
+      const [, quote, value] = match;
+      const playbackUrl = toPlaybackUrl(value, currentManifestUrl, request, token);
+      if (!playbackUrl) continue;
+      rewrittenLine = rewrittenLine.replace(match[0], `URI=${quote}${playbackUrl}${quote}`);
+    }
+    return rewrittenLine;
   }
 
-  return toProxyUrl(trimmed, currentManifestUrl, request, token) ?? line;
+  return toPlaybackUrl(trimmed, currentManifestUrl, request, token) ?? line;
 }
 
 function rewriteManifest(
   content: string,
   currentManifestUrl: string,
   request: NextRequest,
-  token: string
+  token: string,
 ): string {
   return content
     .split(/\r?\n/)
@@ -99,19 +117,6 @@ function copyUpstreamHeaders(upstream: Response, contentLength?: string): Header
   return headers;
 }
 
-async function authorizePlaybackRequest(token: string) {
-  const claims = await verifyPlaybackToken(token);
-  if (!claims) {
-    return {
-      ok: false as const,
-      response: new Response('Invalid or expired playback token', { status: 401 }),
-    };
-  }
-  // The JWT is HMAC-signed — verifyPlaybackToken already proves identity.
-  // Re-checking Supabase session on every segment adds a DB round-trip per .ts chunk.
-  return { ok: true as const, claims };
-}
-
 export async function GET(request: NextRequest) {
   const blocked = await enforceRateLimit(
     request,
@@ -125,35 +130,20 @@ export async function GET(request: NextRequest) {
   );
   if (blocked) return blocked;
 
-  if (!isWatchRequestFromOurSite(request)) {
-    const home = process.env.NEXT_PUBLIC_APP_URL?.trim()?.replace(/\/$/, '') || request.nextUrl.origin;
-    return new Response(null, { status: 302, headers: { Location: `${home}/` } });
-  }
-
-  const token = request.nextUrl.searchParams.get('token')?.trim();
-  if (!token) {
-    return new Response('Missing playback token', { status: 401 });
-  }
-
-  const auth = await authorizePlaybackRequest(token);
+  const auth = await authorizePlaybackRequest(request);
   if (!auth.ok) return auth.response;
 
-  const cachedMetadata = await getPlaybackMetadata(auth.claims.playbackKey);
-  let storedManifestUrl =
-    cachedMetadata &&
-    cachedMetadata.contentId === auth.claims.contentId &&
-    cachedMetadata.ep === auth.claims.ep
-      ? cachedMetadata.hlsManifestUrl
-      : null;
+  const { token, claims, cachedMetadata } = auth;
+  let storedManifestUrl = cachedMetadata?.hlsManifestUrl ?? null;
 
   if (!storedManifestUrl) {
-    storedManifestUrl = await getHlsManifestUrlForPlayback(auth.claims.contentId, auth.claims.ep);
+    storedManifestUrl = await getHlsManifestUrlForPlayback(claims.contentId, claims.ep);
     if (storedManifestUrl) {
       await setPlaybackMetadata(
-        auth.claims.playbackKey,
+        claims.playbackKey,
         {
-          contentId: auth.claims.contentId,
-          ep: auth.claims.ep,
+          contentId: claims.contentId,
+          ep: claims.ep,
           videoUrl: cachedMetadata?.videoUrl ?? null,
           hlsManifestUrl: storedManifestUrl,
         },

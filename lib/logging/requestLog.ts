@@ -238,20 +238,6 @@ export async function checkRateLimit(
   };
 }
 
-export function formatRequestLogLine(params: {
-  request: RequestLike;
-  status: number;
-  durationMs: number;
-}) {
-  const { request, status, durationMs } = params;
-  const ip = getClientIp(request);
-  const path = sanitizePathForLogs(request.url);
-  const ms = Math.max(0, Math.round(durationMs));
-
-  // morgan-ish single line (easy to grep in logs)
-  return `${ip} - ${request.method} ${path} ${status} - ${ms}ms`;
-}
-
 export function logApiRequest(params: {
   request: RequestLike;
   status: number;

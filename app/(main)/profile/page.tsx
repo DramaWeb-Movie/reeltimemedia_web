@@ -104,26 +104,20 @@ export default function ProfilePage() {
         }
       }
 
-      const { data: purchaseRows, error: purchasesError } = await supabase
-        .from('purchases')
-        .select('content_id, purchased_at')
-        .eq('user_id', authUser.id)
-        .eq('content_type', 'movie')
-        .order('purchased_at', { ascending: false });
-
-      if (purchasesError) {
-        console.error('Profile: failed to load purchases', purchasesError);
-      }
-
-      if (purchaseRows && purchaseRows.length > 0) {
-        try {
-          const res = await fetch('/api/profile/library', { credentials: 'include' });
+      try {
+        const res = await fetch('/api/profile/library', {
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        if (!res.ok) {
+          setPurchases([]);
+        } else {
           const json = await res.json().catch(() => ({}));
           const library = Array.isArray(json.library) ? json.library : [];
           setPurchases(library);
-        } catch {
-          setPurchases([]);
         }
+      } catch {
+        setPurchases([]);
       }
 
       setLoading(false);

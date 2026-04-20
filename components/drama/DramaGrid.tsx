@@ -1,7 +1,7 @@
 import type { Drama } from '@/types';
 import DramaCard from './DramaCard';
 import { FiFilm } from 'react-icons/fi';
-import { DRAMA_CARD_GRID } from '@/lib/drama-grid';
+import { CATALOG_CARD_GRID } from '@/lib/catalog/grid';
 
 interface DramaGridProps {
   dramas: Drama[];
@@ -24,7 +24,7 @@ export default function DramaGrid({
   }
 
   return (
-    <div className={DRAMA_CARD_GRID}>
+    <div className={CATALOG_CARD_GRID}>
       {dramas.map((drama) => (
         <DramaCard key={drama.id} drama={drama} />
       ))}

@@ -5,7 +5,7 @@ import { useDebounce } from '@/hooks/useDebounce';
 import { usePurchasedMovieIds } from '@/hooks/usePurchasedMovieIds';
 import DramaCardCompact from '@/components/drama/DramaCardCompact';
 import Pagination from '@/components/shared/Pagination';
-import { DRAMA_CARD_GRID } from '@/lib/drama-grid';
+import { CATALOG_CARD_GRID } from '@/lib/catalog/grid';
 import { FiSearch, FiX } from 'react-icons/fi';
 import { useTranslations } from 'next-intl';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -233,7 +233,7 @@ export default function BrowseContent({
         )}
 
         {initialItems.length > 0 ? (
-          <div className={DRAMA_CARD_GRID}>
+          <div className={CATALOG_CARD_GRID}>
             {initialItems.map((drama) => {
               const isSeries = drama.contentType === 'series' || drama.episodes > 1;
               const isMovie = drama.contentType === 'movie' || (!isSeries && drama.episodes <= 1);

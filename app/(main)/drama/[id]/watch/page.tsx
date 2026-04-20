@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { Suspense, cache } from 'react';
+import { cache } from 'react';
 import {
   FiArrowLeft,
   FiFilm,
@@ -10,42 +10,31 @@ import {
   FiInfo,
   FiCalendar,
 } from 'react-icons/fi';
-import WatchRecommendations, {
-  WatchRecommendationsSkeleton,
-} from '@/components/watch/WatchRecommendations';
+import WatchRecommendations from '@/components/watch/WatchRecommendations';
 import WatchAccessGate from '@/components/watch/WatchAccessGate';
+import { isFreeMovie } from '@/lib/catalog/pricing';
 import { getMovieById } from '@/lib/movies';
+import { getServerSiteBaseUrl, toAbsoluteUrl } from '@/lib/site/serverBaseUrl';
 import {
   isValidDramaId,
   parseWatchEpisodeParam,
   shouldNormalizeWatchSearchParams,
   watchPagePath,
-} from '@/lib/watch-route';
+} from '@/lib/watch/routing';
 import { getTranslations } from 'next-intl/server';
 
 const getMovie = cache(getMovieById);
-
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL ?? '';
 
 type WatchPageProps = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{ ep?: string }>;
 };
 
-function absoluteUrl(pathOrUrl: string | undefined | null): string | undefined {
-  if (!pathOrUrl) return undefined;
-  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
-  try {
-    return new URL(pathOrUrl, SITE_URL).toString();
-  } catch {
-    return undefined;
-  }
-}
-
 export async function generateMetadata({
   params,
   searchParams,
 }: WatchPageProps): Promise<Metadata> {
+  const siteBase = await getServerSiteBaseUrl();
   const { id } = await params;
   const { ep: epRaw } = await searchParams;
   const t = await getTranslations('watch');
@@ -79,8 +68,8 @@ export async function generateMetadata({
     drama.description?.trim() || t('metadataDefaultDesc', { title: drama.title });
 
   const path = watchPagePath(id, episodeNum, isSinglePart);
-  const url = absoluteUrl(path) ?? path;
-  const image = absoluteUrl(drama.posterUrl || drama.bannerUrl);
+  const url = toAbsoluteUrl(siteBase, path) ?? path;
+  const image = toAbsoluteUrl(siteBase, drama.posterUrl || drama.bannerUrl);
 
   return {
     title: pageTitle,
@@ -143,7 +132,7 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
     redirect(watchPagePath(id, episodeNum, isSinglePart));
   }
 
-  const isFreeMovie = contentType === 'movie' && (price == null || price === 0);
+  const movieIsFree = isFreeMovie(contentType, price);
   const episodeList = isSinglePart ? [] : Array.from({ length: totalEpisodes }, (_, i) => i + 1);
 
   const currentEpisode =
@@ -201,7 +190,7 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
                 totalEpisodes={totalEpisodes}
                 poster={drama.posterUrl ?? drama.bannerUrl ?? undefined}
                 freeEpisodesCount={freeEpisodesCount}
-                isFreeMovie={isFreeMovie}
+                isFreeMovie={movieIsFree}
               />
             </div>
 
@@ -356,13 +345,11 @@ export default async function WatchPage({ params, searchParams }: WatchPageProps
           )}
         </div>
 
-        <Suspense fallback={<WatchRecommendationsSkeleton />}>
-          <WatchRecommendations
-            id={id}
-            contentType={contentType ?? 'movie'}
-            genres={genres ?? []}
-          />
-        </Suspense>
+        <WatchRecommendations
+          id={id}
+          contentType={contentType ?? 'movie'}
+          genres={genres ?? []}
+        />
       </div>
     </div>
   );

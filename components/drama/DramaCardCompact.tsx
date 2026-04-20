@@ -1,5 +1,6 @@
 'use client';
 
+import { isMoviePriceFree } from '@/lib/catalog/pricing';
 import { memo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -27,7 +28,7 @@ const DramaCardCompact = memo(function DramaCardCompact({ id, title, titleKh, ep
   const tMovies = useTranslations('movies');
   const watchHref = episodes > 1 ? `/drama/${id}/watch?ep=1` : `/drama/${id}/watch`;
 
-  const isFreeMovie = showMovieButton && (price == null || price === 0);
+  const isFreeMovie = showMovieButton && isMoviePriceFree(price);
   const showButton = showWatchButton || showMovieButton;
   const isWatch = showWatchButton || (showMovieButton && (hasPurchased || isFreeMovie));
   const buttonHref = isWatch ? watchHref : `/drama/${id}`;

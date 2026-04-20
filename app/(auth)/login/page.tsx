@@ -8,7 +8,9 @@ import Input from '@/components/ui/Input';
 import Button from '@/components/ui/Button';
 import { FiMail, FiLock, FiPhone } from 'react-icons/fi';
 import { createClient } from '@/lib/supabase/client';
-import { isValidE164, normalizePhone } from '@/lib/auth/phone';
+import { getSupabasePublicConfigError } from '@/lib/supabase/publicConfig';
+import { normalizePhone } from '@/lib/auth/phone';
+import { validateEmail, validatePassword, validatePhone } from '@/lib/auth/validation';
 import { useTranslations } from 'next-intl';
 
 type LoginMethod = 'email' | 'phone';
@@ -45,25 +47,15 @@ function LoginForm() {
     const newErrors: { email?: string; phone?: string; password?: string } = {};
 
     if (loginMethod === 'email') {
-      if (!formData.email) {
-        newErrors.email = t('emailRequired');
-      } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-        newErrors.email = t('emailInvalid');
-      }
+      const emailError = validateEmail(formData.email, t);
+      if (emailError) newErrors.email = emailError;
     } else {
-      const normalized = normalizePhone(formData.phone);
-      if (!formData.phone.trim()) {
-        newErrors.phone = t('phoneRequired');
-      } else if (!isValidE164(normalized)) {
-        newErrors.phone = t('phoneInvalid');
-      }
+      const phoneError = validatePhone(formData.phone, t);
+      if (phoneError) newErrors.phone = phoneError;
     }
 
-    if (!formData.password) {
-      newErrors.password = t('passwordRequired');
-    } else if (formData.password.length < 6) {
-      newErrors.password = t('passwordMinLength');
-    }
+    const passwordError = validatePassword(formData.password, t);
+    if (passwordError) newErrors.password = passwordError;
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -76,13 +68,9 @@ function LoginForm() {
 
     setLoading(true);
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey =
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-      setErrors({ email: 'Supabase not configured. Restart dev server after updating .env' });
+    const configError = getSupabasePublicConfigError();
+    if (configError) {
+      setErrors({ [loginMethod === 'email' ? 'email' : 'phone']: configError });
       setLoading(false);
       return;
     }
