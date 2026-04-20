@@ -234,6 +234,14 @@ export default function HlsPlayer({
       video.src = fallbackUrl;
       scheduleQualityModeReset('progressive');
       if (autoPlay) void tryAutoPlay(video);
+      // Mobile browsers frequently block autoplay and delay metadata loading for
+      // progressive sources until the user taps. Hide the startup overlay after
+      // a short window so the poster + tap-to-play UI is reachable.
+      const progressiveReadyTimer = setTimeout(() => {
+        setIsPlayerReady(true);
+        setIsBuffering(false);
+      }, 2500);
+      return () => clearTimeout(progressiveReadyTimer);
     }
   }, [manifestUrl, fallbackUrl, autoPlay, onError, scheduleQualityModeReset, defaultBandwidthEstimate]);
 
@@ -405,65 +413,85 @@ export default function HlsPlayer({
     video.pause();
   }
 
-  async function toggleFullscreen() {
+  function toggleFullscreen() {
     const video = videoRef.current;
     const el = playerRef.current;
     if (!video || !el) return;
 
-    type AnyVideo = HTMLVideoElement & { webkitEnterFullscreen?: () => void; webkitExitFullscreen?: () => void; webkitDisplayingFullscreen?: boolean };
-    type AnyEl = HTMLElement & { webkitRequestFullscreen?: () => Promise<void>; mozRequestFullScreen?: () => Promise<void> };
-    type AnyDoc = Document & { webkitFullscreenElement?: Element; mozFullScreenElement?: Element; webkitExitFullscreen?: () => Promise<void>; mozCancelFullScreen?: () => Promise<void> };
-    type FsCapableEl = Element & {
+    type AnyVideo = HTMLVideoElement & {
+      webkitEnterFullscreen?: () => void;
+      webkitExitFullscreen?: () => void;
+      webkitDisplayingFullscreen?: boolean;
+      webkitRequestFullscreen?: () => Promise<void>;
       requestFullscreen?: () => Promise<void>;
+    };
+    type AnyEl = HTMLElement & {
       webkitRequestFullscreen?: () => Promise<void>;
       mozRequestFullScreen?: () => Promise<void>;
+    };
+    type AnyDoc = Document & {
+      webkitFullscreenElement?: Element;
+      mozFullScreenElement?: Element;
+      webkitExitFullscreen?: () => Promise<void>;
+      mozCancelFullScreen?: () => Promise<void>;
     };
 
     const vid = video as AnyVideo;
     const anyEl = el as AnyEl;
     const anyDoc = document as AnyDoc;
-    const fsVideo = video as FsCapableEl;
-    const fsContainer = el as FsCapableEl;
 
-    // iOS Safari: div.requestFullscreen doesn't exist — must use video.webkitEnterFullscreen
-    if (!anyEl.requestFullscreen && !anyEl.webkitRequestFullscreen && typeof vid.webkitEnterFullscreen === 'function') {
-      if (vid.webkitDisplayingFullscreen) {
-        vid.webkitExitFullscreen?.();
-      } else {
-        vid.webkitEnterFullscreen();
+    const fsEl =
+      anyDoc.fullscreenElement ??
+      anyDoc.webkitFullscreenElement ??
+      anyDoc.mozFullScreenElement;
+    const isNativeVideoFs = Boolean(vid.webkitDisplayingFullscreen);
+
+    // Exit if currently fullscreen in any form.
+    if (fsEl || isNativeVideoFs) {
+      if (isNativeVideoFs && typeof vid.webkitExitFullscreen === 'function') {
+        vid.webkitExitFullscreen();
+        return;
+      }
+      const exit =
+        anyDoc.exitFullscreen?.() ??
+        anyDoc.webkitExitFullscreen?.() ??
+        anyDoc.mozCancelFullScreen?.();
+      if (exit && typeof (exit as Promise<unknown>).catch === 'function') {
+        void (exit as Promise<unknown>).catch(() => null);
       }
       return;
     }
 
-    const fsEl = anyDoc.fullscreenElement ?? anyDoc.webkitFullscreenElement ?? anyDoc.mozFullScreenElement;
-    try {
-      if (fsEl) {
-        await (anyDoc.exitFullscreen?.() ?? anyDoc.webkitExitFullscreen?.() ?? anyDoc.mozCancelFullScreen?.());
-      } else {
-        // On many phones, fullscreen is allowed on the <video> element but not on wrapper divs.
-        await (
-          fsVideo.requestFullscreen?.()
-          ?? fsVideo.webkitRequestFullscreen?.()
-          ?? fsVideo.mozRequestFullScreen?.()
-          ?? fsContainer.requestFullscreen?.()
-          ?? fsContainer.webkitRequestFullscreen?.()
-          ?? fsContainer.mozRequestFullScreen?.()
-          ?? anyEl.requestFullscreen?.()
-          ?? anyEl.webkitRequestFullscreen?.()
-          ?? anyEl.mozRequestFullScreen?.()
-        );
-      }
-    } catch {
-      // Mobile Safari can reject requestFullscreen even with a user gesture;
-      // fall back to the native video fullscreen API when available.
-      if (typeof vid.webkitEnterFullscreen === 'function') {
-        try {
-          vid.webkitEnterFullscreen();
-        } catch {
-          // No-op: keep silent if browser blocks fullscreen entirely.
-        }
+    // iOS Safari: the only reliable API is webkitEnterFullscreen on the <video>.
+    // Call it synchronously inside the user gesture and bail out early.
+    if (typeof vid.webkitEnterFullscreen === 'function') {
+      try {
+        vid.webkitEnterFullscreen();
+        return;
+      } catch {
+        // Fall through and try the standard Fullscreen API below.
       }
     }
+
+    // Standard/Android Chrome path — wrapper element first, then video element.
+    const tryRequest = (fn?: () => Promise<void>) => {
+      if (typeof fn !== 'function') return false;
+      try {
+        const p = fn();
+        if (p && typeof p.catch === 'function') {
+          p.catch(() => null);
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    if (tryRequest(anyEl.requestFullscreen?.bind(anyEl))) return;
+    if (tryRequest(anyEl.webkitRequestFullscreen?.bind(anyEl))) return;
+    if (tryRequest(anyEl.mozRequestFullScreen?.bind(anyEl))) return;
+    if (tryRequest(vid.requestFullscreen?.bind(vid))) return;
+    if (tryRequest(vid.webkitRequestFullscreen?.bind(vid))) return;
   }
 
   function handleVideoTap() {
@@ -800,7 +828,7 @@ export default function HlsPlayer({
 
             <button
               type="button"
-              onClick={() => void toggleFullscreen()}
+              onClick={toggleFullscreen}
               className="p-2 rounded-full hover:bg-white/15 transition-colors touch-manipulation"
               aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
             >
