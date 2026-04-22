@@ -1,11 +1,19 @@
 import { NextRequest } from 'next/server';
 import { enforceRateLimit } from '@/lib/api/rateLimit';
 import { fetchWithBudget } from '@/lib/utils/fetchWithBudget';
-import { getR2PresignedUrl, isR2Url } from '@/lib/r2';
 import { getVideoUrlForPlayback } from '@/lib/watch/playbackAccess';
 import { setPlaybackMetadata } from '@/lib/watch/playbackMetadata';
 import { authorizePlaybackRequest } from '@/lib/watch/playbackRequest';
 import { getPlaybackTokenTtlSeconds } from '@/lib/watch/playbackToken';
+
+function isPublicHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Stream video through the server so the real storage URL is never exposed.
@@ -51,25 +59,22 @@ export async function GET(request: NextRequest) {
     return new Response('Video not available', { status: 404 });
   }
 
-  // Redirect to the public R2 URL so the browser fetches the video directly from
-  // Cloudflare CDN instead of proxying every byte through Vercel.
-  // Prefer a short-lived presigned URL when credentials are available; fall back
-  // to the stored public URL for legacy setups.
-  if (isR2Url(videoUrl)) {
-    const signedUrl = await getR2PresignedUrl(
-      videoUrl,
-      Math.max(60, getPlaybackTokenTtlSeconds())
-    );
+  // Redirect the browser directly to the public CDN URL so the video streams
+  // from Cloudflare instead of proxying every byte through Vercel. Using the
+  // public R2 host (pub-*.r2.dev) keeps CORS and Range requests working for
+  // <video> — presigning to r2.cloudflarestorage.com strips browser CORS
+  // headers and can trip SSL handshake issues, leaving the video unplayable.
+  if (isPublicHttpUrl(videoUrl)) {
     return new Response(null, {
       status: 302,
       headers: {
-        Location: signedUrl ?? videoUrl,
+        Location: videoUrl,
         'Cache-Control': 'no-store',
       },
     });
   }
 
-  // Fallback: proxy for non-R2 URLs
+  // Fallback: proxy for non-HTTP(S) or otherwise non-redirectable URLs
   const rangeHeader = request.headers.get('range');
   const headers: Record<string, string> = {};
   if (rangeHeader) headers['Range'] = rangeHeader;
